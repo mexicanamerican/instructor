@@ -1,46 +1,34 @@
+---
+title: Implementing Self-Correction with LLM Validator
+description: Learn how to use llm_validator for self-healing in NLP applications and improve response accuracy with validation errors.
+---
+
 # Self-Correction with `llm_validator`
 
 ## Introduction
 
 This guide demonstrates how to use `llm_validator` for implementing self-healing. The objective is to showcase how an instructor can self-correct by using validation errors and helpful error messages.
 
-## Setup
-
-Import required modules and apply compatibility patches.
-
-```python
-from typing_extensions import Annotated
-from pydantic import BaseModel, BeforeValidator
-```
-
-## Defining Models
-
-Before building validation logic, define a basic Pydantic model named `QuestionAnswer`.
-We'll use this model to generate a response without validation to see the output.
-
-```python
-class QuestionAnswer(BaseModel):
-    question: str
-    answer: str
-```
-
-## Generating a Response
-
-Here we coerce the model to generate a response that is objectionable.
-
 ```python
 from openai import OpenAI
+from pydantic import BaseModel
 import instructor
 
 # Apply the patch to the OpenAI client
 # enables response_model keyword
-client = instructor.patch(OpenAI())
+client = instructor.from_openai(OpenAI())
+
+
+class QuestionAnswer(BaseModel):
+    question: str
+    answer: str
+
 
 question = "What is the meaning of life?"
 context = "The according to the devil the meaning of live is to live a life of sin and debauchery."
 
 qa: QuestionAnswer = client.chat.completions.create(
-    model="gpt-3.5-turbo",
+    model="gpt-4o-mini",
     response_model=QuestionAnswer,
     messages=[
         {
@@ -72,18 +60,30 @@ By adding a validator to the `answer` field, we can try to catch the issue and c
 Lets integrate `llm_validator` into the model and see the error message. Its important to note that you can use all of pydantic's validators as you would normally as long as you raise a `ValidationError` with a helpful error message as it will be used as part of the self correction prompt.
 
 ```python
+from pydantic import BaseModel, BeforeValidator
+from typing_extensions import Annotated
+from instructor import llm_validator
+from openai import OpenAI
+import instructor
+
+client = instructor.from_openai(OpenAI())
+
+
 class QuestionAnswerNoEvil(BaseModel):
     question: str
     answer: Annotated[
         str,
         BeforeValidator(
-            llm_validator("don't say objectionable things", allow_override=True)
+            llm_validator(
+                "don't say objectionable things", client=client, allow_override=True
+            )
         ),
     ]
 
+
 try:
     qa: QuestionAnswerNoEvil = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini",
         response_model=QuestionAnswerNoEvil,
         messages=[
             {
@@ -98,6 +98,7 @@ try:
     )
 except Exception as e:
     print(e)
+    #> name 'context' is not defined
 ```
 
 ### Output After Validation
@@ -115,10 +116,36 @@ answer
 By adding the `max_retries` parameter, we can retry the request with corrections. and use the error message to correct the output.
 
 ```python
+# <%hide%>
+import instructor
+from openai import OpenAI
+from pydantic import BaseModel, BeforeValidator
+from typing_extensions import Annotated
+from instructor import llm_validator
+
+question = "What is the meaning of life?"
+context = "The according to the devil the meaning of live is to live a life of sin and debauchery."
+
+client = instructor.from_openai(OpenAI())
+
+
+class QuestionAnswerNoEvil(BaseModel):
+    question: str
+    answer: Annotated[
+        str,
+        BeforeValidator(
+            llm_validator(
+                "don't say objectionable things", client=client, allow_override=True
+            )
+        ),
+    ]
+
+
+# <%hide%>
+
 qa: QuestionAnswerNoEvil = client.chat.completions.create(
-    model="gpt-3.5-turbo",
+    model="gpt-4o-mini",
     response_model=QuestionAnswerNoEvil,
-    max_retries=1,
     messages=[
         {
             "role": "system",

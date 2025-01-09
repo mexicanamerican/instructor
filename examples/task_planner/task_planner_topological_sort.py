@@ -1,17 +1,17 @@
 """
 Proof of Concept for a task planning and execution system using
-OpenAIs Functions and topological sort, based on the idea in 
+OpenAIs Functions and topological sort, based on the idea in
 query_planner_execution.py.py.
 
-Additionally: There are also cases where the "pure" recursive approach has advantages; 
-If subtasks for different parent tasks that start in parallel have different runtimes, 
+Additionally: There are also cases where the "pure" recursive approach has advantages;
+If subtasks for different parent tasks that start in parallel have different runtimes,
 we will wait unnecessarily with my current implementation.
 
 Added by Jan Philipp Harries / @jpdus
 """
 
 import asyncio
-from typing import List, Generator
+from collections.abc import Generator
 
 from openai import OpenAI
 
@@ -19,7 +19,7 @@ from pydantic import Field, BaseModel
 
 import instructor
 
-client = instructor.patch(OpenAI())
+client = instructor.from_openai(OpenAI())
 
 
 class TaskResult(BaseModel):
@@ -28,7 +28,7 @@ class TaskResult(BaseModel):
 
 
 class TaskResults(BaseModel):
-    results: List[TaskResult]
+    results: list[TaskResult]
 
 
 class Task(BaseModel):
@@ -39,14 +39,14 @@ class Task(BaseModel):
     id: int = Field(..., description="Unique id of the task")
     task: str = Field(
         ...,
-        description="""Contains the task in text form. If there are multiple tasks, 
+        description="""Contains the task in text form. If there are multiple tasks,
         this task can only be executed when all dependant subtasks have been answered.""",
     )
-    subtasks: List[int] = Field(
+    subtasks: list[int] = Field(
         default_factory=list,
-        description="""List of the IDs of subtasks that need to be answered before 
-        we can answer the main question. Use a subtask when anything may be unknown 
-        and we need to ask multiple questions to get the answer. 
+        description="""List of the IDs of subtasks that need to be answered before
+        we can answer the main question. Use a subtask when anything may be unknown
+        and we need to ask multiple questions to get the answer.
         Dependencies must only be other tasks.""",
     )
 
@@ -66,12 +66,12 @@ class TaskPlan(BaseModel):
     Make sure every task is in the tree, and every task is done only once.
     """
 
-    task_graph: List[Task] = Field(
+    task_graph: list[Task] = Field(
         ...,
         description="List of tasks and subtasks that need to be done to complete the main task. Consists of the main task and its dependencies.",
     )
 
-    def _get_execution_order(self) -> List[int]:
+    def _get_execution_order(self) -> list[int]:
         """
         Returns the order in which the tasks should be executed using topological sort.
         Inspired by https://gitlab.com/ericvsmith/toposort/-/blob/master/src/toposort.py

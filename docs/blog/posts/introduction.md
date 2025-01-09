@@ -1,15 +1,26 @@
 ---
-draft: False 
-date: 2023-09-11
-tags:
-  - Introduction
 authors:
-  - jxnl
+- jxnl
+categories:
+- Pydantic
+comments: true
+date: 2023-09-11
+description: Learn how Pydantic simplifies working with LLMs and structured JSON outputs
+  in Python, enhancing developer experience and code organization.
+draft: false
+tags:
+- Pydantic
+- LLMs
+- Python
+- OpenAI
+- JSON
 ---
 
-# Bridging Language Models with Python using Instructor, Pydantic, and OpenAI's Function Calls
+# Generating Structured Output / JSON from LLMs
 
 Language models have seen significant growth. Using them effectively often requires complex frameworks. This post discusses how Instructor simplifies this process using Pydantic.
+
+<!-- more -->
 
 ## The Problem with Existing LLM Frameworks
 
@@ -33,21 +44,23 @@ import instructor
 from openai import OpenAI
 
 # Enables the response_model
-client = instructor.patch(OpenAI())
+client = instructor.from_openai(OpenAI())
+
 
 class UserDetail(pydantic.BaseModel):
     name: str
     age: int
-    
+
     def introduce(self):
         return f"Hello I'm {self.name} and I'm {self.age} years old"
+
 
 user: UserDetail = client.chat.completions.create(
     model="gpt-3.5-turbo",
     response_model=UserDetail,
     messages=[
         {"role": "user", "content": "Extract Jason is 25 years old"},
-    ]
+    ],
 )
 ```
 
@@ -58,17 +71,14 @@ Pydantic validators simplify features like re-asking or self-critique. This make
 ```python
 from typing_extensions import Annotated
 from pydantic import BaseModel, BeforeValidator
-from instructor import llm_validator, patch
+from instructor import llm_validator
 
-from openai import OpenAI
 
 class QuestionAnswerNoEvil(BaseModel):
     question: str
     answer: Annotated[
         str,
-        BeforeValidator(
-            llm_validator("don't say objectionable things")
-        ),
+        BeforeValidator(llm_validator("don't say objectionable things")),
     ]
 ```
 
@@ -77,16 +87,19 @@ class QuestionAnswerNoEvil(BaseModel):
 Pydantic allows for modular output schemas. This leads to more organized code.
 
 ### Composition of Schemas
+
 ```python
 class UserDetails(BaseModel):
     name: str
     age: int
+
 
 class UserWithAddress(UserDetails):
     address: str
 ```
 
 ### Defining Relationships
+
 ```python
 class UserDetail(BaseModel):
     id: int
@@ -94,19 +107,23 @@ class UserDetail(BaseModel):
     name: str
     friends: List[int]
 
+
 class UserRelationships(BaseModel):
     users: List[UserDetail]
 ```
 
 ### Using Enums
+
 ```python
 from enum import Enum, auto
+
 
 class Role(Enum):
     PRINCIPAL = auto()
     TEACHER = auto()
     STUDENT = auto()
     OTHER = auto()
+
 
 class UserDetail(BaseModel):
     age: int
@@ -115,12 +132,15 @@ class UserDetail(BaseModel):
 ```
 
 ### Flexible Schemas
+
 ```python
 from typing import List
+
 
 class Property(BaseModel):
     key: str
     value: str
+
 
 class UserDetail(BaseModel):
     age: int
@@ -129,11 +149,13 @@ class UserDetail(BaseModel):
 ```
 
 ### Chain of Thought
+
 ```python
 class TimeRange(BaseModel):
     chain_of_thought: str
     start_time: int
     end_time: int
+
 
 class UserDetail(BaseModel):
     id: int
@@ -150,11 +172,18 @@ The architecture resembles FastAPI. Most code can be written as Python functions
 ### FastAPI Stub
 
 ```python
-app = FastAPI()
+import fastapi
+from pydantic import BaseModel
+
+class UserDetails(BaseModel):
+    name: str
+    age: int
+
+app = fastapi.FastAPI()
 
 @app.get("/user/{user_id}", response_model=UserDetails)
 async def get_user(user_id: int) -> UserDetails:
-    return UserDetails(...)
+    return ...
 ```
 
 ### Using Instructor as a Function
@@ -163,11 +192,12 @@ async def get_user(user_id: int) -> UserDetails:
 def extract_user(str) -> UserDetails:
     return client.chat.completions(
            response_model=UserDetails,
-           messages=[...]
+           messages=[]
     )
 ```
 
 ### Response Modeling
+
 ```python
 class MaybeUser(BaseModel):
     result: Optional[UserDetail]

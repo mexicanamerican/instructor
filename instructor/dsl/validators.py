@@ -1,9 +1,10 @@
-from typing import Optional
+from typing import Callable, Optional
 
 from openai import OpenAI
 from pydantic import Field
 
 from instructor.function_calls import OpenAISchema
+from instructor.client import Instructor
 
 
 class Validator(OpenAISchema):
@@ -28,11 +29,11 @@ class Validator(OpenAISchema):
 
 def llm_validator(
     statement: str,
+    client: Instructor,
     allow_override: bool = False,
     model: str = "gpt-3.5-turbo",
     temperature: float = 0,
-    openai_client: OpenAI = None,
-):
+) -> Callable[[str], str]:
     """
     Create a validator that uses the LLM to validate an attribute
 
@@ -55,7 +56,7 @@ def llm_validator(
     ```
     1 validation error for User
     name
-      The name is valid but not all lowercase (type=value_error.llm_validator)
+        The name is valid but not all lowercase (type=value_error.llm_validator)
     ```
 
     Note that there, the error message is written by the LLM, and the error type is `value_error.llm_validator`.
@@ -67,12 +68,9 @@ def llm_validator(
         openai_client (OpenAI): The OpenAI client to use (default: None)
     """
 
-    openai_client = openai_client or OpenAI()
-
-    def llm(v):
-        resp = openai_client.chat.completions.create(
-            functions=[Validator.openai_schema],
-            function_call={"name": Validator.openai_schema["name"]},
+    def llm(v: str) -> str:
+        resp = client.chat.completions.create(
+            response_model=Validator,
             messages=[
                 {
                     "role": "system",
@@ -85,8 +83,7 @@ def llm_validator(
             ],
             model=model,
             temperature=temperature,
-        )  # type: ignore
-        resp = Validator.from_response(resp)
+        )
 
         # If the response is  not valid, return the reason, this could be used in
         # the future to generate a better response, via reasking mechanism.
@@ -100,7 +97,7 @@ def llm_validator(
     return llm
 
 
-def openai_moderation(client: OpenAI = None):
+def openai_moderation(client: OpenAI) -> Callable[[str], str]:
     """
     Validates a message using OpenAI moderation model.
 
@@ -126,8 +123,6 @@ def openai_moderation(client: OpenAI = None):
 
     client (OpenAI): The OpenAI client to use, must be sync (default: None)
     """
-
-    client = client or OpenAI()
 
     def validate_message_with_openai_mod(v: str) -> str:
         response = client.moderations.create(input=v)

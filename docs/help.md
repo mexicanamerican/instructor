@@ -1,6 +1,15 @@
+---
+title: Getting Started with Instructor: Help and Resources
+description: Explore key resources for getting help with Instructor, including Discord, blog, concepts, cookbooks, and GitHub discussions.
+---
+
 # Getting help with Instructor
 
 If you need help getting started with Instructor or with advanced usage, the following sources may be useful.
+
+## :material-discord: Discord
+
+The [Discord](https://discord.gg/bD9YE9JArw) is a great place to ask questions and get help from the community.
 
 ## :material-creation: Concepts
 

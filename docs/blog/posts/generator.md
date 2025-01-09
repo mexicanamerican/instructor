@@ -1,14 +1,21 @@
 ---
-draft: False
+authors:
+- jxnl
+- anmol
+categories:
+- LLM Techniques
+comments: true
 date: 2023-11-26
+description: Explore Python generators and their role in enhancing LLM streaming for
+  improved latency and user experience in applications.
+draft: false
 slug: python-generators-and-llm-streaming
 tags:
-  - generators
-  - streaming
-  - python
-authors:
-  - jxnl
-  - anmol
+- Python
+- Generators
+- LLM Streaming
+- Data Processing
+- Performance Optimization
 ---
 
 # Generators and LLM Streaming
@@ -16,6 +23,8 @@ authors:
 Latency is crucial, especially in eCommerce and newer chat applications like ChatGPT. Streaming is the solution that enables us to enhance the user experience without the need for faster response times.
 
 And what makes streaming possible? Generators!
+
+<!-- more -->
 
 In this post, we're going to dive into the cool world of Python generators — these tools are more than just a coding syntax trick. We'll explore Python generators from the ground up and then delve into LLM streaming using the Instructor library.
 
@@ -33,8 +42,12 @@ def count_to_3():
     yield 2
     yield 3
 
+
 for num in count_to_3():
     print(num)
+    #> 1
+    #> 2
+    #> 3
 ```
 
 ```
@@ -54,10 +67,12 @@ Let's see how much faster generators are and where they really shine:
 ```python
 import time
 
+
 def expensive_func(x):
     """Simulate an expensive operation."""
     time.sleep(1)
-    return x ** 2
+    return x**2
+
 
 def calculate_time_for_first_result_with_list(func_input, func):
     """Calculate using a list comprehension and return the first result with its computation time."""
@@ -65,7 +80,9 @@ def calculate_time_for_first_result_with_list(func_input, func):
     result = [func(x) for x in func_input][0]
     end_perf = time.perf_counter()
     print(f"Time for first result (list): {end_perf - start_perf:.2f} seconds")
+    #> Time for first result (list): 5.02 seconds
     return result
+
 
 def calculate_time_for_first_result_with_generator(func_input, func):
     """Calculate using a generator and return the first result with its computation time."""
@@ -73,14 +90,18 @@ def calculate_time_for_first_result_with_generator(func_input, func):
     result = next(func(x) for x in func_input)
     end_perf = time.perf_counter()
     print(f"Time for first result (generator): {end_perf - start_perf:.2f} seconds")
+    #> Time for first result (generator): 1.00 seconds
     return result
+
 
 # Prepare inputs for the function
 numbers = [1, 2, 3, 4, 5]
 
 # Benchmarking
 first_result_list = calculate_time_for_first_result_with_list(numbers, expensive_func)
-first_result_gen = calculate_time_for_first_result_with_generator(numbers, expensive_func)
+first_result_gen = calculate_time_for_first_result_with_generator(
+    numbers, expensive_func
+)
 ```
 
 ```
@@ -95,7 +116,7 @@ The generator computes one expensive operation and returns the first result imme
 Python also allows creating generators in a single line of code, known as generator expressions. They are syntactically similar to list comprehensions but use parentheses.
 
 ```python
-squares = (x*x for x in range(10))
+squares = (x * x for x in range(10))
 ```
 
 ### Use Cases in Real-World Applications
@@ -118,11 +139,9 @@ client = OpenAI(
 
 response_generator = client.chat.completions.create(
     model='gpt-3.5-turbo',
-    messages=[
-        {'role': 'user', 'content': "What are some good reasons to smile?"}
-    ],
+    messages=[{'role': 'user', 'content': "What are some good reasons to smile?"}],
     temperature=0,
-    stream=True
+    stream=True,
 )
 
 for chunk in response_generator:
@@ -175,16 +194,46 @@ We want to rank the following products for this user:
 
 ```python
 products = [
-    {"product_id": 1, "product_name": "Apple MacBook Air (2023) - Latest model, high performance, portable"},
-    {"product_id": 2, "product_name": "Sony WH-1000XM4 Wireless Headphones - Noise-canceling, long battery life"},
-    {"product_id": 3, "product_name": "Apple Watch Series 7 - Advanced fitness tracking, seamless integration with Apple ecosystem"},
-    {"product_id": 4, "product_name": "Kindle Oasis - Premium e-reader with adjustable warm light"},
-    {"product_id": 5, "product_name": "AllBirds Wool Runners - Comfortable, eco-friendly sneakers"},
-    {"product_id": 6, "product_name": "Manduka PRO Yoga Mat - High-quality, durable, eco-friendly"},
-    {"product_id": 7, "product_name": "Bench Hooded Jacket - Stylish, durable, suitable for outdoor activities"},
-    {"product_id": 8, "product_name": "GoPro HERO9 Black - 5K video, waterproof, for action photography"},
-    {"product_id": 9, "product_name": "Nespresso Vertuo Next Coffee Machine - Quality coffee, easy to use, compact design"},
-    {"product_id": 10, "product_name": "Project Hail Mary by Andy Weir - Latest sci-fi book from a renowned author"}
+    {
+        "product_id": 1,
+        "product_name": "Apple MacBook Air (2023) - Latest model, high performance, portable",
+    },
+    {
+        "product_id": 2,
+        "product_name": "Sony WH-1000XM4 Wireless Headphones - Noise-canceling, long battery life",
+    },
+    {
+        "product_id": 3,
+        "product_name": "Apple Watch Series 7 - Advanced fitness tracking, seamless integration with Apple ecosystem",
+    },
+    {
+        "product_id": 4,
+        "product_name": "Kindle Oasis - Premium e-reader with adjustable warm light",
+    },
+    {
+        "product_id": 5,
+        "product_name": "AllBirds Wool Runners - Comfortable, eco-friendly sneakers",
+    },
+    {
+        "product_id": 6,
+        "product_name": "Manduka PRO Yoga Mat - High-quality, durable, eco-friendly",
+    },
+    {
+        "product_id": 7,
+        "product_name": "Bench Hooded Jacket - Stylish, durable, suitable for outdoor activities",
+    },
+    {
+        "product_id": 8,
+        "product_name": "GoPro HERO9 Black - 5K video, waterproof, for action photography",
+    },
+    {
+        "product_id": 9,
+        "product_name": "Nespresso Vertuo Next Coffee Machine - Quality coffee, easy to use, compact design",
+    },
+    {
+        "product_id": 10,
+        "product_name": "Project Hail Mary by Andy Weir - Latest sci-fi book from a renowned author",
+    },
 ]
 ```
 
@@ -196,11 +245,13 @@ from openai import OpenAI
 from typing import Iterable
 from pydantic import BaseModel
 
-client = instructor.patch(OpenAI(), mode=instructor.function_calls.Mode.JSON)
+client = instructor.from_openai(OpenAI(), mode=instructor.function_calls.Mode.JSON)
+
 
 class ProductRecommendation(BaseModel):
     product_id: str
     product_name: str
+
 
 Recommendations = Iterable[ProductRecommendation]
 ```
@@ -208,8 +259,12 @@ Recommendations = Iterable[ProductRecommendation]
 Now let's use our instructor patch. Since we don't want to wait for all the tokens to finish, will set stream to `True` and process each product recommendation as it comes in:
 
 ```python
-
-prompt = f"Based on the following user profile:\n{profile_data}\nRank the following products from most relevant to least relevant:\n" + '\n'.join(f"{product['product_id']} {product['product_name']}" for product in products)
+prompt = (
+    f"Based on the following user profile:\n{profile_data}\nRank the following products from most relevant to least relevant:\n"
+    + '\n'.join(
+        f"{product['product_id']} {product['product_name']}" for product in products
+    )
+)
 
 start_perf = time.perf_counter()
 recommendations_stream = client.chat.completions.create(
@@ -218,9 +273,12 @@ recommendations_stream = client.chat.completions.create(
     response_model=Iterable[ProductRecommendation],
     stream=True,
     messages=[
-        {"role": "system", "content": "Generate product recommendations based on the customer profile. Return in order of highest recommended first."},
-        {"role": "user", "content": prompt}
-    ]
+        {
+            "role": "system",
+            "content": "Generate product recommendations based on the customer profile. Return in order of highest recommended first.",
+        },
+        {"role": "user", "content": prompt},
+    ],
 )
 for product in recommendations_stream:
     print(product)
@@ -244,9 +302,12 @@ recommendations_list = client.chat.completions.create(
     response_model=Iterable[ProductRecommendation],
     stream=False,
     messages=[
-        {"role": "system", "content": "Generate product recommendations based on the customer profile. Return in order of highest recommended first."},
-        {"role": "user", "content": prompt}
-    ]
+        {
+            "role": "system",
+            "content": "Generate product recommendations based on the customer profile. Return in order of highest recommended first.",
+        },
+        {"role": "user", "content": prompt},
+    ],
 )
 print(recommendations_list[0])
 end_perf = time.perf_counter()
@@ -260,18 +321,17 @@ Time for first result (list): 8.63 seconds
 
 Our web application now displays results faster. Even a 100ms improvement can lead to a 1% increase in revenue.
 
-
 ### FastAPI
-We can also take this and set up a streaming LLM API endpoint using FastAPI. Check out our docs on using FastAPI [here](../../concepts/fastapi.md)! 
 
+We can also take this and set up a streaming LLM API endpoint using FastAPI. Check out our docs on using FastAPI [here](../../concepts/fastapi.md)!
 
 ## Key Takeaways
 
 To summarize, we looked at:
 
-•	Generators in Python: A powerful feature that allows for efficient data handling with reduced latency
+• Generators in Python: A powerful feature that allows for efficient data handling with reduced latency
 
-•	LLM Streaming: LLMs provide us generators to stream tokens and Instructor can let us validate and extract data from this stream. Real-time data validation ftw!
+• LLM Streaming: LLMs provide us generators to stream tokens and Instructor can let us validate and extract data from this stream. Real-time data validation ftw!
 
 Don't forget to check our [GitHub](https://github.com/jxnl/instructor) for more resources and give us a star if you find the library helpful!
 

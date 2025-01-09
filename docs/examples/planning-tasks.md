@@ -1,6 +1,11 @@
-# Example: Planning and Executing a Query Plan
+---
+title: 'Query Planning with OpenAI: A Step-by-Step Guide'
+description: Learn how to effectively plan and execute complex query plans using OpenAI's Function Call model for systematic information gathering.
+---
 
-This example demonstrates how to use the OpenAI Function Call ChatCompletion model to plan and execute a query plan in a question-answering system. By breaking down a complex question into smaller sub-questions with defined dependencies, the system can systematically gather the necessary information to answer the main question.
+# Planning and Executing a Query Plan
+
+This example demonstrates how to use the OpenAI Function Call ChatCompletion model to plan and execute a query plan in a question-answering system. By breaking down a complex question into smaller sub-questions with defined dependencies using [lists](../concepts/lists.md), the system can systematically gather the necessary information to answer the main question similar to [knowledge graph extraction](../examples/knowledge_graph.md).
 
 !!! tips "Motivation"
 
@@ -20,17 +25,8 @@ With the OpenAI Function Call model, you can customize the planning process and 
 Let's define the necessary Pydantic models to represent the query plan and the queries.
 
 ```python
-import enum
-from typing import List
-
-from pydantic import Field
-
-
-class QueryType(str, enum.Enum):
-    """Enumeration representing the types of queries that can be asked to a question answer system."""
-
-    SINGLE_QUESTION = "SINGLE"
-    MERGE_MULTIPLE_RESPONSES = "MERGE_MULTIPLE_RESPONSES"
+from typing import List, Literal
+from pydantic import Field, BaseModel
 
 
 class Query(BaseModel):
@@ -45,8 +41,8 @@ class Query(BaseModel):
         default_factory=list,
         description="List of sub questions that need to be answered before asking this question",
     )
-    node_type: QueryType = Field(
-        default=QueryType.SINGLE_QUESTION,
+    node_type: Literal["SINGLE", "MERGE_MULTIPLE_RESPONSES"] = Field(
+        default="SINGLE",
         description="Type of question, either a single question or a multi-question merge",
     )
 
@@ -72,16 +68,53 @@ class QueryPlan(BaseModel):
 Now, let's demonstrate how to plan and execute a query plan using the defined models and the OpenAI API.
 
 ```python
-import asyncio
 import instructor
 from openai import OpenAI
 
+# <%hide%>
+from typing import List, Literal
+from pydantic import Field, BaseModel
+
+
+class Query(BaseModel):
+    """Class representing a single question in a query plan."""
+
+    id: int = Field(..., description="Unique id of the query")
+    question: str = Field(
+        ...,
+        description="Question asked using a question answering system",
+    )
+    dependencies: List[int] = Field(
+        default_factory=list,
+        description="List of sub questions that need to be answered before asking this question",
+    )
+    node_type: Literal["SINGLE", "MERGE_MULTIPLE_RESPONSES"] = Field(
+        default="SINGLE",
+        description="Type of question, either a single question or a multi-question merge",
+    )
+
+
+class QueryPlan(BaseModel):
+    """Container class representing a tree of questions to ask a question answering system."""
+
+    query_graph: List[Query] = Field(
+        ..., description="The query graph representing the plan"
+    )
+
+    def _dependencies(self, ids: List[int]) -> List[Query]:
+        """Returns the dependencies of a query given their ids."""
+        return [q for q in self.query_graph if q.id in ids]
+
+
+# <%hide%>
+
 # Apply the patch to the OpenAI client
 # enables response_model keyword
-client = instructor.patch(OpenAI())
+client = instructor.from_openai(OpenAI())
+
 
 def query_planner(question: str) -> QueryPlan:
-    PLANNING_MODEL = "gpt-4-0613"
+    PLANNING_MODEL = "gpt-4o-mini"
 
     messages = [
         {
@@ -113,36 +146,52 @@ plan.model_dump()
 
 !!! warning "No RAG"
 
-    While we build the query plan in this example, we do not propose a method to actually answer the question. You can implement your own answer function that perhaps makes a retrival and calls openai for retrival augmented generation. That step would also make use of function calls but goes beyond the scope of this example.
+    While we build the query plan in this example, we do not propose a method to actually answer the question. You can implement your own answer function that perhaps makes a retrieval and calls openai for retrieval augmented generation. That step would also make use of function calls but goes beyond the scope of this example.
 
 ```python
-{'query_graph': [{'dependencies': [],
-                    'id': 1,
-                    'node_type': <QueryType.SINGLE_QUESTION: 'SINGLE'>,
-                    'question': "Identify Jason's home country"},
-                    {'dependencies': [],
-                    'id': 2,
-                    'node_type': <QueryType.SINGLE_QUESTION: 'SINGLE'>,
-                    'question': 'Find the population of Canada'},
-                    {'dependencies': [1],
-                    'id': 3,
-                    'node_type': <QueryType.SINGLE_QUESTION: 'SINGLE'>,
-                    'question': "Find the population of Jason's home country"},
-                    {'dependencies': [2, 3],
-                    'id': 4,
-                    'node_type': <QueryType.SINGLE_QUESTION: 'SINGLE'>,
-                    'question': 'Calculate the difference in populations between Canada and Jason's home country"}]}
+{
+    "query_graph": [
+        {
+            "dependencies": [],
+            "id": 1,
+            "node_type": "SINGLE",
+            "question": "Identify Jason's home country",
+        },
+        {
+            "dependencies": [],
+            "id": 2,
+            "node_type": "SINGLE",
+            "question": "Find the population of Canada",
+        },
+        {
+            "dependencies": [1],
+            "id": 3,
+            "node_type": "SINGLE",
+            "question": "Find the population of Jason's home country",
+        },
+        {
+            "dependencies": [2, 3],
+            "id": 4,
+            "node_type": "SINGLE",
+            "question": "Calculate the difference in populations between Canada and Jasons home country",
+        },
+    ]
+}
 ```
 
 In the above code, we define a `query_planner` function that takes a question as input and generates a query plan using the OpenAI API.
 
 ## Conclusion
 
-In this example, we demonstrated how to use the OpenAI Function Call `ChatCompletion` model to plan and execute a query plan using a question-answering system. We defined the necessary structures using Pydantic, created a query planner function.
+In this example, we demonstrated how to use the OpenAI Function Call `ChatCompletion` model to plan a query using a question-answering system. We defined the necessary structures using Pydantic and created a query planner function that generates a structured plan for answering complex questions.
 
-If you want to see multiple versions of this style of code, please visit:
+The query planner breaks down the main question into smaller, manageable sub-questions, establishing dependencies between them. This approach allows for a systematic and organized way to tackle multi-step queries.
 
-1. [query planning example](https://github.com/jxnl/instructor/blob/main/examples/query_planner_execution/query_planner_execution.py)
-2. [task planning with topo sort](https://github.com/jxnl/instructor/blob/main/examples/task_planner/task_planner_topological_sort.py)
+For more advanced implementations and variations of this concept, you can explore:
 
-Feel free to modify the code to fit your specific use case and explore other possibilities of using the OpenAI Function Call model to plan and execute complex workflows.
+1. [Query planning and execution example](https://github.com/jxnl/instructor/blob/main/examples/query_planner_execution/query_planner_execution.py)
+2. [Task planning with topological sort](https://github.com/jxnl/instructor/blob/main/examples/task_planner/task_planner_topological_sort.py)
+
+These examples provide additional insights into how you can leverage structured outputs for complex query planning and task management.
+
+Feel free to adapt this code to your specific use cases and explore the possibilities of using OpenAI Function Calls to plan and structure complex workflows in your applications.

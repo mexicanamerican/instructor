@@ -1,334 +1,122 @@
-import inspect
-import json
-import logging
-from collections.abc import Iterable
+from __future__ import annotations
 from functools import wraps
-from json import JSONDecodeError
-from typing import Callable, Optional, Type, Union, get_args, get_origin
+from typing import (
+    Any,
+    Callable,
+    Protocol,
+    TypeVar,
+    overload,
+)
+from collections.abc import Awaitable
+from typing_extensions import ParamSpec
 
 from openai import AsyncOpenAI, OpenAI
-from openai.types.chat import (
-    ChatCompletion,
-    ChatCompletionMessage,
-    ChatCompletionMessageParam,
+from pydantic import BaseModel
+
+from instructor.process_response import handle_response_model
+from instructor.retry import retry_async, retry_sync
+from instructor.utils import is_async
+from instructor.hooks import Hooks
+from instructor.templating import handle_templating
+
+from instructor.mode import Mode
+import logging
+
+from tenacity import (
+    AsyncRetrying,
+    Retrying,
 )
-from pydantic import BaseModel, ValidationError
-
-from instructor.dsl.multitask import MultiTask, MultiTaskBase
-
-from .function_calls import Mode, OpenAISchema, openai_schema
 
 logger = logging.getLogger("instructor")
 
-OVERRIDE_DOCS = """
-Creates a new chat completion for the provided messages and parameters.
-
-See: https://platform.openai.com/docs/api-reference/chat-completions/create
-
-Additional Notes:
-
-Using the `response_model` parameter, you can specify a response model to use for parsing the response from OpenAI's API. If its present, the response will be parsed using the response model, otherwise it will be returned as is. 
-
-If `stream=True` is specified, the response will be parsed using the `from_stream_response` method of the response model, if available, otherwise it will be parsed using the `from_response` method.
-
-If need to obtain the raw response from OpenAI's API, you can access it using the `_raw_response` attribute of the response model.
-
-Parameters:
-    response_model (Union[Type[BaseModel], Type[OpenAISchema]]): The response model to use for parsing the response from OpenAI's API, if available (default: None)
-    max_retries (int): The maximum number of retries to attempt if the response is not valid (default: 0)
-    validation_context (dict): The validation context to use for validating the response (default: None)
-"""
+T_Model = TypeVar("T_Model", bound=BaseModel)
+T_Retval = TypeVar("T_Retval")
+T_ParamSpec = ParamSpec("T_ParamSpec")
 
 
-def dump_message(message: ChatCompletionMessage) -> ChatCompletionMessageParam:
-    """Dumps a message to a dict, to be returned to the OpenAI API.
-    Workaround for an issue with the OpenAI API, where the `tool_calls` field isn't allowed to be present in requests
-    if it isn't used.
+class InstructorChatCompletionCreate(Protocol):
+    def __call__(
+        self,
+        response_model: type[T_Model] | None = None,
+        validation_context: dict[str, Any] | None = None,  # Deprecate in 2.0
+        context: dict[str, Any] | None = None,
+        max_retries: int | Retrying = 1,
+        *args: Any,
+        **kwargs: Any,
+    ) -> T_Model: ...
+
+
+class AsyncInstructorChatCompletionCreate(Protocol):
+    async def __call__(
+        self,
+        response_model: type[T_Model] | None = None,
+        validation_context: dict[str, Any] | None = None,  # Deprecate in 2.0
+        context: dict[str, Any] | None = None,
+        max_retries: int | AsyncRetrying = 1,
+        *args: Any,
+        **kwargs: Any,
+    ) -> T_Model: ...
+
+
+def handle_context(
+    context: dict[str, Any] | None = None,
+    validation_context: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
     """
-    ret: ChatCompletionMessageParam = {
-        "role": message.role,
-        "content": message.content or "",
-    }
-    if message.tool_calls is not None:
-        ret["content"] += json.dumps(message.model_dump()["tool_calls"])
-    if message.function_call is not None:
-        ret["content"] += json.dumps(message.model_dump()["function_call"])
-    return ret
-
-
-def handle_response_model(
-    *,
-    response_model: Type[BaseModel],
-    kwargs,
-    mode: Mode = Mode.FUNCTIONS,
-):
-    new_kwargs = kwargs.copy()
-    if response_model is not None:
-        if get_origin(response_model) is Iterable:
-            iterable_element_class = get_args(response_model)[0]
-            response_model = MultiTask(iterable_element_class)
-        if not issubclass(response_model, OpenAISchema):
-            response_model = openai_schema(response_model)  # type: ignore
-
-        if new_kwargs.get("stream", False) and not issubclass(
-            response_model, MultiTaskBase
-        ):
-            raise NotImplementedError(
-                "stream=True is not supported when using response_model parameter for non-iterables"
-            )
-
-        if mode == Mode.FUNCTIONS:
-            new_kwargs["functions"] = [response_model.openai_schema]  # type: ignore
-            new_kwargs["function_call"] = {"name": response_model.openai_schema["name"]}  # type: ignore
-        elif mode == Mode.TOOLS:
-            new_kwargs["tools"] = [
-                {
-                    "type": "function",
-                    "function": response_model.openai_schema,
-                }
-            ]
-            new_kwargs["tool_choice"] = {
-                "type": "function",
-                "function": {"name": response_model.openai_schema["name"]},
-            }
-        elif mode == Mode.JSON or mode == Mode.MD_JSON:
-            if mode == Mode.JSON:
-                new_kwargs["response_format"] = {"type": "json_object"}
-                message = f"""Make sure that your response to any message matches the json_schema below,
-                            do not deviate at all: \n{response_model.model_json_schema()['properties']}
-                            """
-                # Check for nested models
-                if "$defs" in response_model.model_json_schema():
-                    message += f"\nHere are some more definitions to adhere too:\n{response_model.model_json_schema()['$defs']}"
-
-            else:
-                message = f"""
-                    As a genius expert, your task is to understand the content and provide 
-                    the parsed objects in json that match the following json_schema (do not deviate at all and its okay if you cant be exact):\n
-                    {response_model.model_json_schema()['properties']}
-                    """
-                new_kwargs["messages"].append(
-                    {
-                        "role": "assistant",
-                        "content": "```json",
-                    },
-                )
-                new_kwargs["stop"] = "```"
-            # check that the first message is a system message
-            # if it is not, add a system message to the beginning
-            if new_kwargs["messages"][0]["role"] != "system":
-                new_kwargs["messages"].insert(
-                    0,
-                    {
-                        "role": "system",
-                        "content": message,
-                    },
-                )
-
-            # if the first message is a system append the schema to the end
-            if new_kwargs["messages"][0]["role"] == "system":
-                new_kwargs["messages"][0]["content"] += f"\n\n{message}"
-        else:
-            raise ValueError(f"Invalid patch mode: {mode}")
-    return response_model, new_kwargs
-
-
-def process_response(
-    response,
-    *,
-    response_model: Type[BaseModel],
-    stream: bool,
-    validation_context: dict = None,
-    strict=None,
-    mode: Mode = Mode.FUNCTIONS,
-):  # type: ignore
-    """Processes a OpenAI response with the response model, if available.
-    It can use `validation_context` and `strict` to validate the response
-    via the pydantic model
-
-    Args:
-        response (ChatCompletion): The response from OpenAI's API
-        response_model (BaseModel): The response model to use for parsing the response
-        stream (bool): Whether the response is a stream
-        validation_context (dict, optional): The validation context to use for validating the response. Defaults to None.
-        strict (bool, optional): Whether to use strict json parsing. Defaults to None.
+    Handle the context and validation_context parameters.
+    If both are provided, raise an error.
+    If validation_context is provided, issue a deprecation warning and use it as context.
+    If neither is provided, return None.
     """
-    if response_model is not None:
-        is_model_multitask = issubclass(response_model, MultiTaskBase)
-        model = response_model.from_response(
-            response,
-            validation_context=validation_context,
-            strict=strict,
-            mode=mode,
-            stream_multitask=stream and is_model_multitask,
+    if context is not None and validation_context is not None:
+        raise ValueError(
+            "Cannot provide both 'context' and 'validation_context'. Use 'context' instead."
         )
-        if not stream:
-            model._raw_response = response
-            if is_model_multitask:
-                return model.tasks
-        return model
-    return response
+    if validation_context is not None and context is None:
+        import warnings
+
+        warnings.warn(
+            "'validation_context' is deprecated. Use 'context' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        context = validation_context
+    return context
 
 
-async def retry_async(
-    func,
-    response_model,
-    validation_context,
-    args,
-    kwargs,
-    max_retries,
-    strict: Optional[bool] = None,
-    mode: Mode = Mode.FUNCTIONS,
-):
-    retries = 0
-    while retries <= max_retries:
-        try:
-            response: ChatCompletion = await func(*args, **kwargs)
-            stream = kwargs.get("stream", False)
-            return process_response(
-                response,
-                response_model=response_model,
-                stream=stream,
-                validation_context=validation_context,
-                strict=strict,
-                mode=mode,
-            )
-        except (ValidationError, JSONDecodeError) as e:
-            kwargs["messages"].append(dump_message(response.choices[0].message))  # type: ignore
-            kwargs["messages"].append(
-                {
-                    "role": "user",
-                    "content": f"Recall the function correctly, exceptions found\n{e}",
-                }
-            )
-            if mode == Mode.MD_JSON:
-                kwargs["messages"].append(
-                    {
-                        "role": "assistant",
-                        "content": "```json",
-                    },
-                )
-            retries += 1
-            if retries > max_retries:
-                raise e
+@overload
+def patch(
+    client: OpenAI,
+    mode: Mode = Mode.TOOLS,
+) -> OpenAI: ...
 
 
-def retry_sync(
-    func,
-    response_model,
-    validation_context,
-    args,
-    kwargs,
-    max_retries,
-    strict: Optional[bool] = None,
-    mode: Mode = Mode.FUNCTIONS,
-):
-    retries = 0
-    while retries <= max_retries:
-        # Excepts ValidationError, and JSONDecodeError
-        try:
-            response = func(*args, **kwargs)
-            stream = kwargs.get("stream", False)
-            return process_response(
-                response,
-                response_model=response_model,
-                stream=stream,
-                validation_context=validation_context,
-                strict=strict,
-                mode=mode,
-            )
-        except (ValidationError, JSONDecodeError) as e:
-            logger.exception(f"Retrying, exception: {e}")
-            kwargs["messages"].append(dump_message(response.choices[0].message))
-            kwargs["messages"].append(
-                {
-                    "role": "user",
-                    "content": f"Recall the function correctly, exceptions found\n{e}",
-                }
-            )
-            if mode == Mode.MD_JSON:
-                kwargs["messages"].append(
-                    {
-                        "role": "assistant",
-                        "content": "```json",
-                    },
-                )
-            retries += 1
-            if retries > max_retries:
-                logger.warning(f"Max retries reached, exception: {e}")
-                raise e
+@overload
+def patch(
+    client: AsyncOpenAI,
+    mode: Mode = Mode.TOOLS,
+) -> AsyncOpenAI: ...
 
 
-def is_async(func: Callable) -> bool:
-    """Returns true if the callable is async, accounting for wrapped callables"""
-    return inspect.iscoroutinefunction(func) or (
-        hasattr(func, "__wrapped__") and inspect.iscoroutinefunction(func.__wrapped__)
-    )
+@overload
+def patch(
+    create: Callable[T_ParamSpec, T_Retval],
+    mode: Mode = Mode.TOOLS,
+) -> InstructorChatCompletionCreate: ...
 
 
-def wrap_chatcompletion(func: Callable, mode: Mode = Mode.FUNCTIONS) -> Callable:
-    func_is_async = is_async(func)
-
-    @wraps(func)
-    async def new_chatcompletion_async(
-        response_model=None,
-        validation_context=None,
-        max_retries=1,
-        *args,
-        **kwargs,
-    ):
-        if mode == Mode.TOOLS:
-            max_retries = 0
-            logger.warning("max_retries is not supported when using tool calls")
-
-        response_model, new_kwargs = handle_response_model(
-            response_model=response_model, kwargs=kwargs, mode=mode
-        )  # type: ignore
-        response = await retry_async(
-            func=func,
-            response_model=response_model,
-            validation_context=validation_context,
-            max_retries=max_retries,
-            args=args,
-            kwargs=new_kwargs,
-            mode=mode,
-        )  # type: ignore
-        return response
-
-    @wraps(func)
-    def new_chatcompletion_sync(
-        response_model=None,
-        validation_context=None,
-        max_retries=1,
-        *args,
-        **kwargs,
-    ):
-        if mode == Mode.TOOLS:
-            max_retries = 0
-            logger.warning("max_retries is not supported when using tool calls")
-
-        response_model, new_kwargs = handle_response_model(
-            response_model=response_model, kwargs=kwargs, mode=mode
-        )  # type: ignore
-        response = retry_sync(
-            func=func,
-            response_model=response_model,
-            validation_context=validation_context,
-            max_retries=max_retries,
-            args=args,
-            kwargs=new_kwargs,
-            mode=mode,
-        )  # type: ignore
-        return response
-
-    wrapper_function = (
-        new_chatcompletion_async if func_is_async else new_chatcompletion_sync
-    )
-    wrapper_function.__doc__ = OVERRIDE_DOCS
-    return wrapper_function
+@overload
+def patch(
+    create: Awaitable[T_Retval],
+    mode: Mode = Mode.TOOLS,
+) -> InstructorChatCompletionCreate: ...
 
 
-def patch(client: Union[OpenAI, AsyncOpenAI], mode: Mode = Mode.FUNCTIONS):
+def patch(  # type: ignore
+    client: OpenAI | AsyncOpenAI | None = None,
+    create: Callable[T_ParamSpec, T_Retval] | None = None,
+    mode: Mode = Mode.TOOLS,
+) -> OpenAI | AsyncOpenAI:
     """
     Patch the `client.chat.completions.create` method
 
@@ -338,16 +126,93 @@ def patch(client: Union[OpenAI, AsyncOpenAI], mode: Mode = Mode.FUNCTIONS):
     - `max_retries` parameter to retry the function if the response is not valid
     - `validation_context` parameter to validate the response using the pydantic model
     - `strict` parameter to use strict json parsing
+    - `hooks` parameter to hook into the completion process
     """
 
     logger.debug(f"Patching `client.chat.completions.create` with {mode=}")
-    client.chat.completions.create = wrap_chatcompletion(
-        client.chat.completions.create, mode=mode
-    )
-    return client
+
+    if create is not None:
+        func = create
+    elif client is not None:
+        func = client.chat.completions.create
+    else:
+        raise ValueError("Either client or create must be provided")
+
+    func_is_async = is_async(func)
+
+    @wraps(func)  # type: ignore
+    async def new_create_async(
+        response_model: type[T_Model] | None = None,
+        validation_context: dict[str, Any] | None = None,
+        context: dict[str, Any] | None = None,
+        max_retries: int | AsyncRetrying = 1,
+        strict: bool = True,
+        hooks: Hooks | None = None,
+        *args: T_ParamSpec.args,
+        **kwargs: T_ParamSpec.kwargs,
+    ) -> T_Model:
+        context = handle_context(context, validation_context)
+
+        response_model, new_kwargs = handle_response_model(
+            response_model=response_model, mode=mode, **kwargs
+        )  # type: ignore
+        new_kwargs = handle_templating(new_kwargs, context)
+
+        response = await retry_async(
+            func=func,  # type:ignore
+            response_model=response_model,
+            context=context,
+            max_retries=max_retries,
+            args=args,
+            kwargs=new_kwargs,
+            strict=strict,
+            mode=mode,
+            hooks=hooks,
+        )
+        return response  # type: ignore
+
+    @wraps(func)  # type: ignore
+    def new_create_sync(
+        response_model: type[T_Model] | None = None,
+        validation_context: dict[str, Any] | None = None,
+        context: dict[str, Any] | None = None,
+        max_retries: int | Retrying = 1,
+        strict: bool = True,
+        hooks: Hooks | None = None,
+        *args: T_ParamSpec.args,
+        **kwargs: T_ParamSpec.kwargs,
+    ) -> T_Model:
+        context = handle_context(context, validation_context)
+
+        response_model, new_kwargs = handle_response_model(
+            response_model=response_model, mode=mode, **kwargs
+        )  # type: ignore
+
+        new_kwargs = handle_templating(new_kwargs, context)
+
+        response = retry_sync(
+            func=func,  # type: ignore
+            response_model=response_model,
+            context=context,
+            max_retries=max_retries,
+            args=args,
+            hooks=hooks,
+            strict=strict,
+            kwargs=new_kwargs,
+            mode=mode,
+        )
+        return response  # type: ignore
+
+    new_create = new_create_async if func_is_async else new_create_sync
+
+    if client is not None:
+        client.chat.completions.create = new_create  # type: ignore
+        return client
+    else:
+        return new_create  # type: ignore
 
 
-def apatch(client: AsyncOpenAI, mode: Mode = Mode.FUNCTIONS):
+def apatch(client: AsyncOpenAI, mode: Mode = Mode.TOOLS) -> AsyncOpenAI:
     """
     No longer necessary, use `patch` instead.
 
@@ -360,4 +225,9 @@ def apatch(client: AsyncOpenAI, mode: Mode = Mode.FUNCTIONS):
     - `validation_context` parameter to validate the response using the pydantic model
     - `strict` parameter to use strict json parsing
     """
+    import warnings
+
+    warnings.warn(
+        "apatch is deprecated, use patch instead", DeprecationWarning, stacklevel=2
+    )
     return patch(client, mode=mode)

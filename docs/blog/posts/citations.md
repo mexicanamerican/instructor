@@ -1,15 +1,20 @@
 ---
-draft: False
+authors:
+- jxnl
+categories:
+- Pydantic
+comments: true
 date: 2023-11-18
+description: Explore how Pydantic enhances LLM citation verification, improving data
+  accuracy and reliability in responses.
+draft: false
 slug: validate-citations
 tags:
-  - pydantic
-  - validation
-  - finetuneing
-  - citations
-  - hallucination
-authors:
-  - jxnl
+- Pydantic
+- LLM
+- Data Accuracy
+- Citation Verification
+- Python
 ---
 
 # Verifying LLM Citations with Pydantic
@@ -18,6 +23,8 @@ Ensuring the accuracy of information is crucial. This blog post explores how Pyd
 
 We'll start with using a simple substring check to verify citations. Then we'll use `instructor` itself to power an LLM to verify citations and align answers with the given citations. Finally, we'll explore how we can use these techniques to generate a dataset of accurate responses.
 
+<!-- more -->
+
 ## Example 1: Simple Substring Check
 
 In this example, we use the `Statements` class to verify if a given substring quote exists within a text chunk. If the substring is not found, an error is raised.
@@ -25,12 +32,13 @@ In this example, we use the `Statements` class to verify if a given substring qu
 ### Code Example:
 
 ```python
-from typing import List, Optional
+from typing import List
 from openai import OpenAI
-from pydantic import BaseModel, Field, ValidationError, ValidationInfo, field_validator, model_validator
+from pydantic import BaseModel, ValidationInfo, field_validator
 import instructor
 
-client = instructor.patch(OpenAI())
+client = instructor.from_openai(OpenAI())
+
 
 class Statements(BaseModel):
     body: str
@@ -42,7 +50,7 @@ class Statements(BaseModel):
         context = info.context.get("text_chunks", None)
 
         for text_chunk in context.values():
-            if v in text_chunk: # (1)
+            if v in text_chunk:  # (1)
                 return v
         raise ValueError("Could not find substring_quote `{v}` in contexts")
 

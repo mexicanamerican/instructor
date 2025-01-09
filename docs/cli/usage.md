@@ -1,3 +1,8 @@
+---
+title: OpenAI API Usage CLI Guide
+description: Learn how to monitor OpenAI API usage with the CLI tool, including commands for viewing data by model, date, and cost.
+---
+
 # Using the OpenAI API Usage CLI
 
 The OpenAI API Usage CLI tool provides functionalities for monitoring your OpenAI API usage, breaking it down by model, date, and cost.
@@ -9,9 +14,9 @@ The OpenAI API Usage CLI tool provides functionalities for monitoring your OpenA
 ```sh
 $ instructor usage --help
 
- Usage: instructor usage [OPTIONS] COMMAND [ARGS]...                                                           
+ Usage: instructor usage [OPTIONS] COMMAND [ARGS]...
 
- Check OpenAI API usage data                                                                                   
+ Check OpenAI API usage data
 
 ╭─ Options ───────────────────────────────────────────────────────╮
 │ --help          Show this message and exit.                     │
@@ -26,7 +31,7 @@ $ instructor usage --help
 To display API usage for the past 3 days, use the following command:
 
 ```sh
-$ instructor usage list -n 3
+$ instructor usage list --n 3
 ```
 
 This will output a table similar to:
@@ -51,7 +56,6 @@ To display the API usage for today, simply run:
 $ instructor usage list
 ```
 
-# Contributions 
+# Contributions
 
 We aim to provide a light wrapper around the API rather than offering a complete CLI. Contributions are welcome! Please feel free to make an issue at [jxnl/instructor/issues](https://github.com/jxnl/instructor/issues) or submit a pull request.
-

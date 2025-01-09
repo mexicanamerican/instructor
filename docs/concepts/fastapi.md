@@ -1,3 +1,8 @@
+---
+title: Integrating Pydantic with FastAPI for Efficient APIs
+description: Learn how to leverage Pydantic models with FastAPI for seamless API development and automatic documentation.
+---
+
 # Integrating Pydantic Models with FastAPI
 
 [FastAPI](https://fastapi.tiangolo.com/) is an enjoyable tool for building web applications in Python. It is well known for its integration with `Pydantic` models, which makes defining and validating data structures straightforward and efficient. In this guide, we explore how simple functions that return `Pydantic` models can seamlessly integrate with `FastAPI`.
@@ -20,12 +25,14 @@ from pydantic import BaseModel
 from openai import AsyncOpenAI
 
 # Enables response_model
-client = instructor.patch(AsyncOpenAI())
+client = instructor.from_openai(AsyncOpenAI())
 app = FastAPI()
+
 
 class UserData(BaseModel):
     # This can be the model for the input data
     query: str
+
 
 class UserDetail(BaseModel):
     name: str
@@ -33,13 +40,13 @@ class UserDetail(BaseModel):
 
 
 @app.post("/endpoint", response_model=UserDetail)
-def endpoint_function(data: UserData) -> UserDetail:
+async def endpoint_function(data: UserData) -> UserDetail:
     user_detail = await client.chat.completions.create(
         model="gpt-3.5-turbo",
         response_model=UserDetail,
         messages=[
             {"role": "user", "content": f"Extract: `{data.query}`"},
-        ]
+        ],
     )
     return user_detail
 ```
@@ -49,8 +56,22 @@ def endpoint_function(data: UserData) -> UserDetail:
 `FastAPI` supports streaming responses, which is useful for returning large amounts of data. This feature is particularly useful when working with large language models (LLMs) that generate a large amount of data.
 
 ```python hl_lines="6-7"
+from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 from typing import Iterable
+from pydantic import BaseModel
+
+app = FastAPI()
+
+
+class UserData(BaseModel):
+    query: str
+
+
+class UserDetail(BaseModel):
+    name: str
+    age: int
+
 
 # Route to handle SSE events and return users
 @app.post("/extract", response_class=StreamingResponse)
@@ -61,11 +82,11 @@ async def extract(data: UserData):
         stream=True,
         messages=[
             {"role": "user", "content": data.query},
-        ]
+        ],
     )
 
     async def generate():
-        for user in users:
+        async for user in users:
             resp_json = user.model_dump_json()
             yield f"data: {resp_json}"
         yield "data: [DONE]"

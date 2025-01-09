@@ -1,5 +1,5 @@
 import json
-from typing import Iterable, List
+from collections.abc import Iterable
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.params import Depends
 from instructor import OpenAISchema
@@ -13,7 +13,7 @@ import logging
 from openai import OpenAI
 from instructor.dsl.multitask import MultiTaskBase
 
-client = instructor.patch(OpenAI())
+client = instructor.from_openai(OpenAI())
 logger = logging.getLogger(__name__)
 
 # FastAPI app
@@ -33,7 +33,7 @@ class Fact(BaseModel):
         ...,
         description="Body of the sentences, as part of a response, it should read like a sentence that answers the question",
     )
-    substring_quotes: List[str] = Field(
+    substring_quotes: list[str] = Field(
         ...,
         description="Each source should be a direct quote from the context, as a substring of the original content",
     )
@@ -61,13 +61,13 @@ class Fact(BaseModel):
 
 class QuestionAnswer(OpenAISchema, MultiTaskBase):
     """
-    Class representing a question and its answer as a list of facts each one should have a soruce.
+    Class representing a question and its answer as a list of facts each one should have a source.
     each sentence contains a body and a list of sources."""
 
     question: str = Field(..., description="Question that was asked")
-    tasks: List[Fact] = Field(
+    tasks: list[Fact] = Field(
         ...,
-        description="Body of the answer, each fact should be its seperate object with a body and a list of sources",
+        description="Body of the answer, each fact should be its separate object with a body and a list of sources",
     )
 
 
@@ -125,7 +125,7 @@ def get_api_key(request: Request):
 
 # Route to handle SSE events and return users
 @app.post("/extract", response_class=StreamingResponse)
-async def extract(question: Question, openai_key=Depends(get_api_key)):
+async def extract(question: Question, openai_key: str = Depends(get_api_key)):
     raise Exception(
         "The 'openai.api_key' option isn't read in the client API. You will need to pass it when you instantiate the client, e.g. 'OpenAI(api_key=openai_key)'"
     )

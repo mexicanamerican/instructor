@@ -1,9 +1,9 @@
 name: Test
-
 on:
-  push:
   pull_request:
-    branches: [ main ]
+  push:
+    branches:
+      - main
 
 jobs:
   release:
@@ -11,46 +11,38 @@ jobs:
 
     strategy:
       matrix:
-        python-version: ['3.9', '3.10', '3.11']
+        python-version: ["3.9", "3.10", "3.11"]
 
     steps:
       - uses: actions/checkout@v2
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
         with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Cache Poetry virtualenv
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pypoetry/virtualenvs
-          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-poetry-
-
-      - name: Install Poetry
-        uses: snok/install-poetry@v1.3.1
-
-      - name: Install dependencies
-        run: poetry install --with dev
-
+          enable-cache: true
+      - name: Set up Python
+        run: uv python install ${{ matrix.python-version }}
+      - name: Install the project
+        run: uv sync --all-extras
       - name: Run tests
-        run: poetry run pytest tests/ -k "not openai"
+        if: matrix.python-version != '3.11'
+        run: uv run pytest tests/ -k 'not llm and not openai and not gemini and not anthropic and not cohere and not vertexai'
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+
+      - name: Run Gemini Tests
+        if: matrix.python-version == '3.11'
+        run: uv run pytest tests/llm/test_gemini
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
 
       - name: Generate coverage report
         if: matrix.python-version == '3.11'
         run: |
-          poetry run coverage run -m pytest tests/ -k "not openai"
-          poetry run coverage report 
-          poetry run coverage html
+          uv run coverage run -m pytest tests/ -k "not docs and not anthropic and not gemini and not cohere and not vertexai and not fireworks"
+          uv run coverage report
+          uv run coverage html
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-
-      - name: Coveralls GitHub Action
-        if: matrix.python-version == '3.11'
-        uses: coverallsapp/github-action@v2.2.3
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

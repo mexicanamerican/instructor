@@ -1,15 +1,20 @@
 ---
-draft: False
+authors:
+- jxnl
+categories:
+- Performance Optimization
+comments: true
 date: 2023-11-26
+description: Learn caching techniques in Python using Pydantic models with functools,
+  diskcache, and Redis for improved performance and efficiency.
+draft: false
 slug: python-caching
 tags:
-  - caching
-  - functools
-  - redis
-  - diskcache
-  - python
-authors:
-  - jxnl
+- Python
+- Caching
+- Pydantic
+- Performance Optimization
+- Redis
 ---
 
 # Introduction to Caching in Python
@@ -18,7 +23,9 @@ authors:
 
 Today, we're diving into optimizing instructor code while maintaining the excellent DX offered by [Pydantic](https://docs.pydantic.dev/latest/) models. We'll tackle the challenges of caching Pydantic models, typically incompatible with `pickle`, and explore solutions that use `decorators` like `functools.cache`. Then, we'll craft custom decorators with `diskcache` and `redis` to support persistent caching and distributed systems.
 
-Lets first consider our canonical example, using the `OpenAI` Python client to extract user details.
+<!-- more -->
+
+Let's first consider our canonical example, using the `OpenAI` Python client to extract user details.
 
 ```python
 import instructor
@@ -26,20 +33,22 @@ from openai import OpenAI
 from pydantic import BaseModel
 
 # Enables `response_model`
-client = instructor.patch(OpenAI())
+client = instructor.from_openai(OpenAI())
+
 
 class UserDetail(BaseModel):
     name: str
     age: int
 
+
 def extract(data) -> UserDetail:
     return client.chat.completions.create(
-    model="gpt-3.5-turbo",
-    response_model=UserDetail,
-    messages=[
-        {"role": "user", "content": data},
-    ]
-)
+        model="gpt-3.5-turbo",
+        response_model=UserDetail,
+        messages=[
+            {"role": "user", "content": data},
+        ],
+    )
 ```
 
 Now imagine batch processing data, running tests or experiments, or simply calling `extract` multiple times over a workflow. We'll quickly run into performance issues, as the function may be called repeatedly, and the same data will be processed over and over again, costing us time and money.
@@ -51,6 +60,7 @@ Now imagine batch processing data, running tests or experiments, or simply calli
 ```python
 import functools
 
+
 @functools.cache
 def extract(data):
     return client.chat.completions.create(
@@ -58,7 +68,7 @@ def extract(data):
         response_model=UserDetail,
         messages=[
             {"role": "user", "content": data},
-        ]
+        ],
     )
 ```
 
@@ -71,16 +81,16 @@ Now we can call `extract` multiple times with the same argument, and the result 
 ```python hl_lines="4 8 12"
 import time
 
-start = time.perf_counter() # (1)
+start = time.perf_counter()  # (1)
 model = extract("Extract jason is 25 years old")
 print(f"Time taken: {time.perf_counter() - start}")
 
 start = time.perf_counter()
-model = extract("Extract jason is 25 years old") # (2)
+model = extract("Extract jason is 25 years old")  # (2)
 print(f"Time taken: {time.perf_counter() - start}")
 
->>> Time taken: 0.9267581660533324
->>> Time taken: 1.2080417945981026e-06 # (3)
+#> Time taken: 0.92
+#> Time taken: 1.20e-06 # (3)
 ```
 
 1. Using `time.perf_counter()` to measure the time taken to run the function is better than using `time.time()` because it's more accurate and less susceptible to system clock changes.
@@ -96,20 +106,26 @@ print(f"Time taken: {time.perf_counter() - start}")
     ```python hl_lines="3-5 9"
     def decorator(func):
         def wrapper(*args, **kwargs):
-            print("Do something before") # (1)
+            print("Do something before")  # (1)
+            #> Do something before
             result = func(*args, **kwargs)
-            print("Do something after") # (2)
+            print("Do something after")  # (2)
+            #> Do something after
             return result
+
         return wrapper
+
 
     @decorator
     def say_hello():
+        #> Hello!
         print("Hello!")
 
+
     say_hello()
-    >>> "Do something before"
-    >>> "Hello!"
-    >>> "Do something after"
+    #> "Do something before"
+    #> "Hello!"
+    #> "Do something after"
     ```
 
     1. The code is executed before the function is called
@@ -126,12 +142,13 @@ print(f"Time taken: {time.perf_counter() - start}")
     import inspect
     import diskcache
 
-    cache = diskcache.Cache('./my_cache_directory') # (1)
+    cache = diskcache.Cache('./my_cache_directory')  # (1)
+
 
     def instructor_cache(func):
         """Cache a function that returns a Pydantic model"""
         return_type = inspect.signature(func).return_annotation
-        if not issubclass(return_type, BaseModel): # (2)
+        if not issubclass(return_type, BaseModel):  # (2)
             raise ValueError("The return type must be a Pydantic model")
 
         @functools.wraps(func)
@@ -168,19 +185,21 @@ import diskcache
 from openai import OpenAI
 from pydantic import BaseModel
 
-client = instructor.patch(OpenAI())
+client = instructor.from_openai(OpenAI())
 cache = diskcache.Cache('./my_cache_directory')
 
 
 def instructor_cache(func):
     """Cache a function that returns a Pydantic model"""
-    return_type = inspect.signature(func).return_annotation # (4)
-    if not issubclass(return_type, BaseModel): # (1)
+    return_type = inspect.signature(func).return_annotation  # (4)
+    if not issubclass(return_type, BaseModel):  # (1)
         raise ValueError("The return type must be a Pydantic model")
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        key = f"{func.__name__}-{functools._make_key(args, kwargs, typed=False)}" #  (2)
+        key = (
+            f"{func.__name__}-{functools._make_key(args, kwargs, typed=False)}"  #  (2)
+        )
         # Check if the result is already cached
         if (cached := cache.get(key)) is not None:
             # Deserialize from JSON based on the return type (3)
@@ -195,9 +214,11 @@ def instructor_cache(func):
 
     return wrapper
 
+
 class UserDetail(BaseModel):
     name: str
     age: int
+
 
 @instructor_cache
 def extract(data) -> UserDetail:
@@ -206,7 +227,7 @@ def extract(data) -> UserDetail:
         response_model=UserDetail,
         messages=[
             {"role": "user", "content": data},
-        ]
+        ],
     )
 ```
 
@@ -229,6 +250,7 @@ def extract(data) -> UserDetail:
     import redis
 
     cache = redis.Redis("localhost")
+
 
     def instructor_cache(func):
         """Cache a function that returns a Pydantic model"""
@@ -262,24 +284,24 @@ def extract(data) -> UserDetail:
 import redis
 import functools
 import inspect
-import json
 import instructor
 
 from pydantic import BaseModel
 from openai import OpenAI
 
-client = instructor.patch(OpenAI())
+client = instructor.from_openai(OpenAI())
 cache = redis.Redis("localhost")
+
 
 def instructor_cache(func):
     """Cache a function that returns a Pydantic model"""
     return_type = inspect.signature(func).return_annotation
-    if not issubclass(return_type, BaseModel): # (1)
+    if not issubclass(return_type, BaseModel):  # (1)
         raise ValueError("The return type must be a Pydantic model")
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        key = f"{func.__name__}-{functools._make_key(args, kwargs, typed=False)}" # (2)
+        key = f"{func.__name__}-{functools._make_key(args, kwargs, typed=False)}"  # (2)
         # Check if the result is already cached
         if (cached := cache.get(key)) is not None:
             # Deserialize from JSON based on the return type
@@ -299,6 +321,7 @@ class UserDetail(BaseModel):
     name: str
     age: int
 
+
 @instructor_cache
 def extract(data) -> UserDetail:
     # Assuming client.chat.completions.create returns a UserDetail instance
@@ -307,7 +330,7 @@ def extract(data) -> UserDetail:
         response_model=UserDetail,
         messages=[
             {"role": "user", "content": data},
-        ]
+        ],
     )
 ```
 
@@ -318,7 +341,7 @@ def extract(data) -> UserDetail:
 
 !!! note "Looking carefully"
 
-    If you look carefully at the code above you'll notice that we're using the same `instructor_cache` decorator as before. The implementatino is the same, but we're using a different caching backend!
+    If you look carefully at the code above you'll notice that we're using the same `instructor_cache` decorator as before. The implementation is the same, but we're using a different caching backend!
 
 ## Conclusion
 

@@ -1,19 +1,52 @@
-# Function Calls by Example
+---
+title: Comprehensive AI Cookbook Collection
+description: Explore diverse AI applications with cookbooks showcasing structured techniques for improved performance and efficiency.
+---
+
+# Cookbooks
+
+Welcome to our collection of cookbooks showcasing the power of structured outputs in AI applications. These examples demonstrate how to effectively use instructor with various models and APIs to solve real-world problems.
 
 ## Quick Links
 
-1. [How are single and multi-label classifications done using enums?](classification.md)
-2. [How is AI self-assessment implemented with `llm_validator`?](self_critique.md)
-3. [How are exact citations retrieved using regular expressions and smart prompting?](exact_citations.md)
-4. [How are search queries segmented through function calling and multi-task definitions?](search.md)
-5. [How are knowledge graphs generated from questions?](knowledge_graph.md)
-6. [How are complex queries decomposed into subqueries in a single request?](planning-tasks.md)
-7. [How are entities extracted and resolved from documents?](entity_resolution.md)
-8. [How are recursive schemas implemented and understood?](recursive.md)
-9. [How are tables extracted automatically from textual data?](autodataframe.md)
-10. [How is multi-file code generation accomplished?](gpt-engineer.md)
-11. [How is Personally Identifiable Information sanitized from documents?](pii.md)
-12. [How are action items and dependencies generated from transcripts?](action_items.md)
-13. [How to enable OpenAI's moderation](moderation.md)
+1. [Enum-Based Classification](classification.md): Implement structured classification using Python enums with AI models.
+2. [AI Self-Assessment and Correction](self_critique.md): Explore techniques for AI models to evaluate and improve their own outputs.
+3. [Efficient Batch Classification](bulk_classification.md): Process multiple items simultaneously for improved performance.
+4. [Precise Citation Extraction](exact_citations.md): Accurately retrieve and format citations from text using AI.
+5. [Search Query Segmentation](search.md): Break down complex search queries into structured components for better understanding.
+6. [Dynamic Knowledge Graph Generation](knowledge_graph.md): Create visual representations of information relationships using AI.
+7. [Complex Query Decomposition](planning-tasks.md): Break down intricate queries into manageable subtasks for thorough analysis.
+8. [Entity Extraction and Resolution](entity_resolution.md): Identify and disambiguate named entities in text.
+9. [PII Sanitization](pii.md): Detect and redact sensitive personal information from text data.
+10. [Action Item Extraction](planning-tasks.md): Generate structured task lists and relationships from meeting transcripts.
+11. [OpenAI Content Moderation Integration](moderation.md): Implement content filtering using OpenAI's moderation API.
+12. [Table Extraction with GPT-Vision](extracting_tables.md): Convert image-based tables into structured data using AI vision capabilities.
+13. [AI-Powered Ad Copy Generation from Images](image_to_ad_copy.md): Create compelling advertising text based on visual content.
+14. [Local AI with Ollama Integration](ollama.md): Utilize open-source language models for on-device processing.
+15. [Database Integration with SQLModel](sqlmodel.md): Seamlessly store AI-generated responses in SQL databases.
+16. [LLM-Based Document Segmentation](document_segmentation.md): Intelligently divide long documents into meaningful sections.
+17. [Cost Optimization with OpenAI's Batch API](batch_job_oai.md): Reduce API costs by processing multiple requests efficiently.
+18. [Groq Cloud API Integration](groq.md): Leverage Groq's high-performance AI inference platform.
+19. [Mistral and Mixtral Model Usage](mistral.md): Implement state-of-the-art open-source language models in your projects.
+20. [Multi-Modal AI with Gemini](multi_modal_gemini.md): Process and analyze text, images, and other data types simultaneously.
+21. [IBM watsonx.ai Integration](watsonx.md): Utilize IBM's enterprise AI platform for advanced language processing tasks.
+22. [Receipt Information Extraction with GPT-4 Vision](extracting_receipts.md): Extract structured data from receipt images using advanced AI vision capabilities.
+23. [Slide Content Extraction with GPT-4 Vision](extract_slides.md): Convert presentation slide images into structured, analyzable text data.
+24. [Few-Shot Learning with Examples](examples.md): Improve AI model performance by providing contextual examples in prompts.
+25. [Local Classification without API](local_classification.md): Perform text classification tasks locally without relying on external API calls.
+26. [Action Items Extraction](action_items.md): Extract structured action items and tasks from text content.
+27. [Batch Classification with LangSmith](batch_classification_langsmith.md): Efficiently classify content in batches using LangSmith integration.
+28. [Contact Information Extraction](extract_contact_info.md): Extract structured contact details from unstructured text.
+29. [Knowledge Graph Building](building_knowledge_graph.md): Create and manipulate knowledge graphs from textual data.
+30. [Multiple Classification Tasks](multiple_classification.md): Handle multiple classification categories simultaneously.
+31. [Pandas DataFrame Integration](pandas_df.md): Work with structured data using Pandas DataFrames.
+32. [Partial Response Streaming](partial_streaming.md): Stream partial results for real-time processing.
+33. [Single Classification Tasks](single_classification.md): Implement focused single-category classification.
+34. [Table Extraction from Images](tables_from_vision.md): Convert visual tables into structured data formats.
+35. [YouTube Clip Analysis](youtube_clips.md): Extract and analyze information from YouTube video clips.
 
-Explore more!
+## Subscribe to our Newsletter for Updates and Tips
+
+If you want to get updates on new features and tips on how to use Instructor, you can subscribe to our newsletter below to get notified when we publish new content.
+
+<iframe src="https://embeds.beehiiv.com/2faf420d-8480-4b6e-8d6f-9c5a105f917a?slim=true" data-test-id="beehiiv-embed" height="52" frameborder="0" scrolling="no" style="margin: 0; border-radius: 0px !important; background-color: transparent;"></iframe>

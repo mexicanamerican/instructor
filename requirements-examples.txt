@@ -1,0 +1,12 @@
+openai>=1.1.0
+pydantic
+docstring-parser
+rich
+aiohttp
+ruff==0.8.1
+pre-commit==4.0.1
+pyright==1.1.390
+typer
+cohere
+datasets
+trafilatura

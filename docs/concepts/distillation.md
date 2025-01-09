@@ -1,3 +1,8 @@
+---
+title: Seamless Fine-Tuning of Python Functions Using Instructor's Distillation
+description: Learn how to fine-tune language models with Python functions using Instructor's `Instructions` for efficient data preparation and logging.
+---
+
 # Distilling python functions into LLM
 
 `Instructions` from the `Instructor` library offers a seamless way to make language models backward compatible with existing Python functions. By employing Pydantic type hints, it not only ensures compatibility but also facilitates fine-tuning `gpt-3.5-turbo` to emulate these functions end-to-end.
@@ -22,7 +27,7 @@ Before we dig into the nitty-gritty, let's look at how easy it is to use Instruc
 import logging
 import random
 from pydantic import BaseModel
-from instructor import Instructions # pip install instructor
+from instructor import Instructions  # pip install instructor
 
 # Logging setup
 logging.basicConfig(level=logging.INFO)
@@ -33,13 +38,15 @@ instructions = Instructions(
     # log handler is used to save the data to a file
     # you can imagine saving it to a database or other storage
     # based on your needs!
-    log_handlers=[logging.FileHandler("math_finetunes.jsonl")]
+    log_handlers=[logging.FileHandler("math_finetunes.jsonl")],
 )
+
 
 class Multiply(BaseModel):
     a: int
     b: int
     result: int
+
 
 # Define a function with distillation
 # The decorator will automatically generate a dataset for fine-tuning
@@ -49,11 +56,23 @@ def fn(a: int, b: int) -> Multiply:
     resp = a * b
     return Multiply(a=a, b=b, result=resp)
 
+
 # Generate some data
 for _ in range(10):
+    random.seed(42)
     a = random.randint(100, 999)
     b = random.randint(100, 999)
     print(fn(a, b))
+    #> a=754 b=214 result=161356
+    #> a=754 b=214 result=161356
+    #> a=754 b=214 result=161356
+    #> a=754 b=214 result=161356
+    #> a=754 b=214 result=161356
+    #> a=754 b=214 result=161356
+    #> a=754 b=214 result=161356
+    #> a=754 b=214 result=161356
+    #> a=754 b=214 result=161356
+    #> a=754 b=214 result=161356
 ```
 
 ## The Intricacies of Fine-tuning Language Models
@@ -80,17 +99,17 @@ Here's how the logging output would look:
     "messages": [
         {"role": "system", "content": 'Predict the results of this function: ...'},
         {"role": "user", "content": 'Return fn(133, b=539)'},
-        {"role": "assistant",
-            "function_call":
-                {
-                    "name": "Multiply",
-                    "arguments": '{"a":133,"b":539,"result":89509}'
-            }
-        }
+        {
+            "role": "assistant",
+            "function_call": {
+                "name": "Multiply",
+                "arguments": '{"a":133,"b":539,"result":89509}',
+            },
+        },
     ],
     "functions": [
         {"name": "Multiply", "description": "Correctly extracted `Multiply`..."}
-    ]
+    ],
 }
 ```
 
@@ -104,10 +123,19 @@ Once a model is trained you can simply change `mode` to `dispatch` and it will u
 
 ```python
 from instructor import Instructions
+from pydantic import BaseModel
+
+
+class Multiply(BaseModel):
+    a: int
+    b: int
+    result: int
+
 
 instructions = Instructions(
     name="three_digit_multiply",
 )
+
 
 @instructions.distil(model='gpt-3.5-turbo:finetuned-123', mode="dispatch")
 def fn(a: int, b: int) -> Multiply:

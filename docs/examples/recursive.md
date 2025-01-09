@@ -1,163 +1,135 @@
-# Example: Parsing a Directory Tree
+---
+title: Working with Recursive Schemas in Instructor
+description: Learn how to effectively implement and use recursive Pydantic models for handling nested and hierarchical data structures.
+---
 
-In this example, we will demonstrate how define and use a recursive class definition to convert a string representing a directory tree into a filesystem structure using OpenAI's function call api. We will define the necessary structures using Pydantic, create a function to parse the tree, and provide an example of how to use it.
+# Recursive Schema Implementation Guide
 
-## Defining the Structures
+This guide demonstrates how to work with recursive schemas in Instructor using Pydantic models. While flat schemas are often simpler to work with, some use cases require recursive structures to represent hierarchical data effectively.
 
-We will use Pydantic to define the necessary data structures representing the directory tree and its nodes. We have two classes, `Node` and `DirectoryTree`, which are used to model individual nodes and the entire directory tree, respectively.
+!!! tips "Motivation"
+    Recursive schemas are particularly useful when dealing with:
+    * Nested organizational structures
+    * File system hierarchies
+    * Comment threads with replies
+    * Task dependencies with subtasks
+    * Abstract syntax trees
 
-!!! warning "Flat is better than nested"
-While it's easier to model things as nested, returning flat items with dependencies tends to yield better results. For a flat example, check out [planning tasks](planning-tasks.md) where we model a query plan as a dag.
+## Defining a Recursive Schema
+
+Here's an example of how to define a recursive Pydantic model:
 
 ```python
-import enum
-from typing import List
-from pydantic import Field
+from typing import List, Optional
+from pydantic import BaseModel, Field
 
-class NodeType(str, enum.Enum):
-    """Enumeration representing the types of nodes in a filesystem."""
-    FILE = "file"
-    FOLDER = "folder"
 
-class Node(BaseModel):
-    """
-    Class representing a single node in a filesystem. Can be either a file or a folder.
-    Note that a file cannot have children, but a folder can.
+class RecursiveNode(BaseModel):
+    """A node that can contain child nodes of the same type."""
 
-    Args:
-        name (str): The name of the node.
-        children (List[Node]): The list of child nodes (if any).
-        node_type (NodeType): The type of the node, either a file or a folder.
-
-    Methods:
-        print_paths: Prints the path of the node and its children.
-    """
-    name: str = Field(..., description="Name of the folder")
-    children: List["Node"] = Field(
-        default_factory=list,
-        description="List of children nodes, only applicable for folders, files cannot have children",
+    name: str = Field(..., description="Name of the node")
+    value: Optional[str] = Field(
+        None, description="Optional value associated with the node"
     )
-    node_type: NodeType = Field(
-        default=NodeType.FILE,
-        description="Either a file or folder, use the name to determine which it could be",
+    children: List["RecursiveNode"] = Field(
+        default_factory=list, description="List of child nodes"
     )
 
-    def print_paths(self, parent_path=""):
-        """Prints the path of the node and its children."""
-        if self.node_type == NodeType.FOLDER:
-            path = f"{parent_path}/{self.name}" if parent_path != "" else self.name
-            print(path, self.node_type)
-            if self.children is not None:
-                for child in self.children:
-                    child.print_paths(path)
-        else:
-            print(f"{parent_path}/{self.name}", self.node_type)
 
-class DirectoryTree(BaseModel):
-    """
-    Container class representing a directory tree.
-
-    Args:
-        root (Node): The root node of the tree.
-
-    Methods:
-        print_paths: Prints the paths of the root node and its children.
-    """
-    root: Node = Field(..., description="Root folder of the directory tree")
-
-    def print_paths(self):
-        """Prints the paths of the root node and its children."""
-        self.root.print_paths()
-
-Node.update_forward_refs()
-DirectoryTree.update_forward_refs()
+# Required for recursive Pydantic models
+RecursiveNode.model_rebuild()
 ```
 
-The `Node` class represents a single node in the directory tree. It has a name, a list of children nodes (applicable only to folders), and a node type (either a file or a folder). The `print_paths` method can be used to print the path of the node and its children.
+## Example Usage
 
-The `DirectoryTree` class represents the entire directory tree. It has a single attribute, `root`, which is the root node of the tree. The `print_paths` method can be used to print the paths of the root node and its children.
-
-## Parsing the Tree
-
-We define a function `parse_tree_to_filesystem` to convert a string representing a directory tree into a filesystem structure using OpenAI.
+Let's see how to use this recursive schema with Instructor:
 
 ```python
 import instructor
 from openai import OpenAI
 
-# Apply the patch to the OpenAI client
-# enables response_model keyword
-client = instructor.patch(OpenAI())
+client = instructor.from_openai(OpenAI())
 
-def parse_tree_to_filesystem(data: str) -> DirectoryTree:
-    """
-    Convert a string representing a directory tree into a filesystem structure
-    using OpenAI's GPT-3 model.
 
-    Args:
-        data (str): The string to convert into a filesystem.
-
-    Returns:
-        DirectoryTree: The directory tree representing the filesystem.
-    """
-
+def parse_hierarchy(text: str) -> RecursiveNode:
+    """Parse text into a hierarchical structure."""
     return client.chat.completions.create(
-        model="gpt-3.5-turbo-0613",
-        response_model=DirectoryTree,
+        model="gpt-4",
         messages=[
             {
                 "role": "system",
-                "content": "You are a perfect file system parsing algorithm. You are given a string representing a directory tree. You must return the correct filesystem structure.",
+                "content": "You are an expert at parsing text into hierarchical structures.",
             },
             {
                 "role": "user",
-                "content": f"Consider the data below:\n{data} and return the correctly labeled filesystem",
+                "content": f"Parse this text into a hierarchical structure: {text}",
             },
         ],
-        max_tokens=1000,
+        response_model=RecursiveNode,
     )
 
-```
 
-The `parse_tree_to_filesystem` function takes a string `data` representing the directory tree and returns a `DirectoryTree` object representing the filesystem structure. It uses the OpenAI Chat API to complete the prompt and extract the directory tree.
-
-## Example Usage
-
-Let's demonstrate how to use the `parse_tree_to_filesystem`
-
-function with an example:
-
-```python
-root = parse_tree_to_filesystem(
+# Example usage
+hierarchy = parse_hierarchy(
     """
-    root
-    ├── folder1
-    │   ├── file1.txt
-    │   └── file2.txt
-    └── folder2
-        ├── file3.txt
-        └── subfolder1
-            └── file4.txt
-    """
+Company: Acme Corp
+- Department: Engineering
+  - Team: Frontend
+    - Project: Website Redesign
+    - Project: Mobile App
+  - Team: Backend
+    - Project: API v2
+    - Project: Database Migration
+- Department: Marketing
+  - Team: Digital
+    - Project: Social Media Campaign
+  - Team: Brand
+    - Project: Logo Refresh
+"""
 )
-root.print_paths()
 ```
 
-In this example, we call `parse_tree_to_filesystem` with a string representing a directory tree.
+## Validation and Best Practices
 
-After parsing the string into a `DirectoryTree` object, we call `root.print_paths()` to print the paths of the root node and its children. The output of this example will be:
+When working with recursive schemas:
+
+1. Always call `model_rebuild()` after defining the model
+2. Consider adding validation for maximum depth to prevent infinite recursion
+3. Use type hints properly to maintain code clarity
+4. Consider implementing custom validators for specific business rules
 
 ```python
-root                               NodeType.FOLDER
-root/folder1                       NodeType.FOLDER
-root/folder1/file1.txt             NodeType.FILE
-root/folder1/file2.txt             NodeType.FILE
-root/folder2                       NodeType.FOLDER
-root/folder2/file3.txt             NodeType.FILE
-root/folder2/subfolder1            NodeType.FOLDER
-root/folder2/subfolder1/file4.txt  NodeType.FILE
+from pydantic import model_validator
+
+
+class RecursiveNodeWithDepth(RecursiveNode):
+    @model_validator(mode='after')
+    def validate_depth(self) -> "RecursiveNodeWithDepth":
+        def check_depth(node: "RecursiveNodeWithDepth", current_depth: int = 0) -> int:
+            if current_depth > 10:  # Maximum allowed depth
+                raise ValueError("Maximum depth exceeded")
+            return max(
+                [check_depth(child, current_depth + 1) for child in node.children],
+                default=current_depth,
+            )
+
+        check_depth(self)
+        return self
 ```
 
-This demonstrates how to use OpenAI's GPT-3 model to parse a string representing a directory tree and obtain the correct filesystem structure.
+## Performance Considerations
 
-I hope this example helps you understand how to leverage OpenAI Function Call for parsing recursive trees. If you have any further questions, feel free to ask!
+While recursive schemas are powerful, they can be more challenging for language models to handle correctly. Consider these tips:
+
+1. Keep structures as shallow as possible
+2. Use clear naming conventions
+3. Provide good examples in your prompts
+4. Consider breaking very large structures into smaller chunks
+
+## Conclusion
+
+Recursive schemas provide a powerful way to handle hierarchical data structures in your applications. While they require more careful handling than flat schemas, they can be invaluable for certain use cases.
+
+For more examples of working with complex data structures, check out:
+1. [Query Planning with Dependencies](planning-tasks.md)
+2. [Knowledge Graph Generation](knowledge_graph.md)

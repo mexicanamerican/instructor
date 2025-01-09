@@ -1,21 +1,23 @@
-from pydantic import BaseModel, Field, create_model
-from typing import Type, Optional
+from pydantic import BaseModel, Field, create_model 
+from typing import Generic, Optional, TypeVar
+
+T = TypeVar("T", bound=BaseModel)
 
 
-class MaybeBase(BaseModel):
+class MaybeBase(BaseModel, Generic[T]):
     """
     Extract a result from a model, if any, otherwise set the error and message fields.
     """
 
-    result: Optional[BaseModel]
+    result: Optional[T]
     error: bool = Field(default=False)
     message: Optional[str]
 
-    def __bool__(self):
-        return self.result is not None  # type: ignore
+    def __bool__(self) -> bool:
+        return self.result is not None
 
 
-def Maybe(model: Type[BaseModel]) -> MaybeBase:
+def Maybe(model: type[T]) -> type[MaybeBase[T]]:
     """
     Create a Maybe model for a given Pydantic model. This allows you to return a model that includes fields for `result`, `error`, and `message` for sitatations where the data may not be present in the context.
 
@@ -51,29 +53,22 @@ def Maybe(model: Type[BaseModel]) -> MaybeBase:
     Returns:
         MaybeModel (Type[BaseModel]): A new Pydantic model that includes fields for `result`, `error`, and `message`.
     """
-
-    class MaybeBase(BaseModel):
-        def __bool__(self):
-            return self.result is not None  # type: ignore
-
-    fields = {
-        "result": (
+    return create_model(
+        f"Maybe{model.__name__}",
+        __base__=MaybeBase,
+        result=(
             Optional[model],
             Field(
                 default=None,
                 description="Correctly extracted result from the model, if any, otherwise None",
             ),
         ),
-        "error": (bool, Field(default=False)),
-        "message": (
+        error=(bool, Field(default=False)),
+        message=(
             Optional[str],
             Field(
                 default=None,
                 description="Error message if no result was found, should be short and concise",
             ),
         ),
-    }
-
-    MaybeModel = create_model(f"Maybe{model.__name__}", __base__=MaybeBase, **fields)
-
-    return MaybeModel  # type: ignore
+    )
