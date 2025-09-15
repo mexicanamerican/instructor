@@ -177,3 +177,7 @@ math_finetunes.jsonl
 pr_body.md
 
 check_zero_width_chars.py
+
+# Suggestion files from architectural analysis
+*_SUGGESTIONS.md
+ORGANIZED_SUGGESTIONS.md
