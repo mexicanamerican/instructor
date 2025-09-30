@@ -98,7 +98,7 @@ Logfire can help us to log this entire function, and what's happening inside it,
 def classify(data: str) -> SinglePrediction:
     """Perform single-label classification on the input text."""
     return client.chat.completions.create(
-        model="gpt-3.5-turbo-0613",
+        model="gpt-4o-mini",
         response_model=SinglePrediction,
         messages=[
             {
