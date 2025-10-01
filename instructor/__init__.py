@@ -63,10 +63,15 @@ __all__ = [
     "llm_validator",
     "openai_moderation",
     "hooks",
+    "client",  # Backward compatibility
     # Backward compatibility exports
     "handle_response_model",
     "handle_parallel_model",
 ]
+
+# Backward compatibility: Make instructor.client available as an attribute
+# This allows code like `instructor.client.Instructor` to work
+from . import client
 
 
 if importlib.util.find_spec("anthropic") is not None:
