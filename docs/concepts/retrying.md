@@ -248,10 +248,10 @@ def extract_citation_with_context(claim: str, source_text: str) -> Citation:
             },
             {
                 "role": "user",
-                "content": f"Source: {source_text}\n\nClaim to verify: {claim}"
+                "content": "Source: {{ source_text }}\n\nClaim to verify: {{ claim }}"
             }
         ],
-        context={"source_text": source_text}
+        context={"source_text": source_text, "claim": claim}
     )
 
 source = "The Eiffel Tower was completed in 1889 and stands 330 meters tall."

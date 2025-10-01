@@ -246,7 +246,7 @@ extraction = client.chat.completions.create(
         },
         {
             "role": "user",
-            "content": f"Source text: {source_text}\n\nExtract a claim about Python."
+            "content": "Source text: {{ source_text }}\n\nExtract a claim about Python."
         }
     ],
     context={"source_text": source_text}
