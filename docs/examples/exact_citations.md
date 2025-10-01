@@ -155,7 +155,7 @@ class QuestionAnswer(BaseModel):
 # <%hide%>
 def ask_ai(question: str, context: str) -> QuestionAnswer:
     return client.chat.completions.create(
-        model="gpt-3.5-turbo-0613",
+        model="gpt-4o-mini",
         temperature=0,
         response_model=QuestionAnswer,
         messages=[
