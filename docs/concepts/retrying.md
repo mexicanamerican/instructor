@@ -289,7 +289,7 @@ class ProductReview(BaseModel):
         """Ensure the product name matches one of the allowed products."""
         context = info.context
         if context:
-            allowed_products = context.get('allowed_products', [])
+            allowed_products = context.get('products', [])
             if v not in allowed_products:
                 raise ValueError(
                     f"Product '{v}' not recognized. "
