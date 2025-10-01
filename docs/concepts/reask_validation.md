@@ -13,7 +13,7 @@ Pydantic offers an customizable and expressive validation framework for Python. 
 
 !!! note "Good llm validation is just good validation"
 
-    If you want to see some more examples on validators checkout our blog post [Good LLM validation is just good validation](https://jxnl.github.io/instructor/blog/2023/10/23/good-llm-validation-is-just-good-validation/)
+    If you want to see some more examples on validators checkout our blog post [Good LLM validation is just good validation](https://python.useinstructor.com/blog/2023/10/23/good-llm-validation-is-just-good-validation/)
 
 ### Code-based Validation Example
 
