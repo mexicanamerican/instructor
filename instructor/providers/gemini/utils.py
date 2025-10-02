@@ -897,6 +897,7 @@ def handle_genai_tools(
     new_kwargs.pop("messages", None)
     new_kwargs.pop("generation_config", None)
     new_kwargs.pop("safety_settings", None)
+    new_kwargs.pop("thinking_config", None)
 
     return response_model, new_kwargs
 
