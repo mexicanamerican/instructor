@@ -23,7 +23,7 @@ PROVIDERS = [
     "openai/gpt-4o-mini",
     "azure_openai/gpt-4o-mini",
     "mistral/ministral-8b-latest",
-    "cohere/command-a-03-2025",
+    "cohere/command-a-reasoning-08-2025",
     "perplexity/sonar-pro",
     "groq/llama-3.1-8b-instant",
     "writer/palmyra-x5",
