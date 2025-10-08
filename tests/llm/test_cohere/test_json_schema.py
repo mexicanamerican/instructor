@@ -88,7 +88,7 @@ async def test_parse_user_async(aclient, mode):
 
     resp = await client.chat.completions.create(
         response_model=ValidatedUser,
-        model="command-r-plus",
+        model="command-a-reasoning-08-2025",
         messages=[
             {
                 "role": "user",
@@ -109,7 +109,7 @@ async def test_parse_user_async_jinja(aclient, mode):
 
     resp = await client.chat.completions.create(
         response_model=ValidatedUser,
-        model="command-r-plus",
+        model="command-a-reasoning-08-2025",
         messages=[
             {
                 "role": "user",

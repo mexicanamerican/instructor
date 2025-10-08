@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 client = instructor.from_cohere(
     cohere.Client(),
     max_tokens=1000,
-    model="command-r-plus",
+    model="command-a-reasoning-08-2025",
 )
 
 

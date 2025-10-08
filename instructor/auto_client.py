@@ -809,7 +809,7 @@ def from_provider(
                 "llama4",
                 "mistral-nemo",
                 "firefunction-v2",
-                "command-r-plus",
+                "command-a-reasoning-08-2025",
                 "qwen2.5",
                 "qwen2.5-coder",
                 "qwen3",

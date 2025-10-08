@@ -267,7 +267,7 @@ def test_client_cohere_response():
     instructor_client = instructor.from_cohere(
         client,
         max_tokens=1000,
-        model="command-r-plus",
+        model="command-a-reasoning-08-2025",
     )
 
     user = instructor_client.messages.create(
@@ -285,7 +285,7 @@ def test_client_cohere_response_with_nested_classes():
     instructor_client = instructor.from_cohere(
         client,
         max_tokens=1000,
-        model="command-r-plus",
+        model="command-a-reasoning-08-2025",
     )
 
     class Person(BaseModel):
@@ -322,7 +322,7 @@ async def test_client_cohere_async():
     instructor_client = instructor.from_cohere(
         client,
         max_tokens=1000,
-        model="command-r-plus",
+        model="command-a-reasoning-08-2025",
     )
 
     class Person(BaseModel):
