@@ -402,8 +402,12 @@ class OpenAISchema(BaseModel):
         strict: Optional[bool] = None,
     ) -> BaseModel:
         if isinstance(completion, dict):
-            text = completion.get("output").get("message").get("content")[0].get("text")
-
+            # OpenAI will send the first content to be 'reasoningText', and then 'text'
+            content = completion["output"]["message"]["content"]
+            text_content = next((c for c in content if "text" in c), None)
+            if not text_content:
+                raise ValueError("Unexpected format. No text content found.")
+            text = text_content["text"]
             match = re.search(r"```?json(.*?)```?", text, re.DOTALL)
             if match:
                 text = match.group(1).strip()
