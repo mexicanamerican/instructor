@@ -27,7 +27,7 @@ from openai.types.chat import (
     ChatCompletionMessage,
     ChatCompletionMessageParam,
 )
-from pydantic import BaseModel, create_model
+from pydantic import BaseModel, ValidationError, create_model
 
 # Avoid circular import - these will be imported where needed
 
@@ -531,7 +531,34 @@ def get_message_content(message: ChatCompletionMessageParam) -> list[Any]:
 
 
 def disable_pydantic_error_url():
-    os.environ["PYDANTIC_ERRORS_INCLUDE_URL"] = "0"
+    """Disable URLs in Pydantic ValidationError messages.
+
+    This function monkey-patches Pydantic's ValidationError.__str__ method
+    to prevent URLs from being included in error messages. This is necessary
+    because Pydantic reads the PYDANTIC_ERRORS_INCLUDE_URL environment variable
+    at import time, not at validation time, so setting it later has no effect.
+
+    The function works by storing the original __str__ method and replacing it
+    with a version that filters out URLs from the error message.
+    """
+    # Store the original __str__ method if not already stored
+    if not hasattr(ValidationError, "_original_str"):
+        ValidationError._original_str = ValidationError.__str__  # type: ignore
+
+    # Create a new __str__ method that excludes URLs
+    def __str__(self):  # type: ignore
+        output = ValidationError._original_str(self)  # type: ignore
+        # Remove error_url from the error details to prevent URL inclusion
+        # This removes the (error_code=..., input=..., ctx={...}) parts that include URLs
+        lines = []
+        for line in output.split("\n"):
+            # Skip lines that contain URLs or error documentation links
+            if "https://errors.pydantic.dev" not in line:
+                lines.append(line)
+        return "\n".join(lines)
+
+    # Replace the __str__ method
+    ValidationError.__str__ = __str__  # type: ignore
 
 
 def is_typed_dict(cls) -> bool:
