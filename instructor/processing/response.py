@@ -37,7 +37,8 @@ from __future__ import annotations
 
 import inspect
 import logging
-from typing import Any, TypeVar, TYPE_CHECKING
+from typing import Any, TypeVar, TYPE_CHECKING, cast
+from collections.abc import AsyncGenerator
 
 from openai.types.chat import ChatCompletion
 from pydantic import BaseModel
@@ -229,15 +230,12 @@ async def process_response_async(
         and stream
     ):
         # from_streaming_response_async returns an AsyncGenerator
-        # Collect all yielded values into a list
+        # Yield each item as it comes in
         # Note: response type varies by mode (ChatCompletion, AsyncGenerator, etc.)
-        tasks = []
-        async for task in response_model.from_streaming_response_async(  # type: ignore[arg-type]
+        return response_model.from_streaming_response_async(  # type: ignore[return-value]
             cast(AsyncGenerator[Any, None], response),  # type: ignore[arg-type]
             mode=mode,
-        ):
-            tasks.append(task)
-        return tasks  # type: ignore
+        )
 
     model = response_model.from_response(  # type: ignore
         response,
