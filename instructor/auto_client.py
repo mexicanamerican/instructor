@@ -160,10 +160,29 @@ def from_provider(
             import openai
             from instructor import from_openai  # type: ignore[attr-defined]
 
+            # Extract base_url and other OpenAI client parameters from kwargs
+            base_url = kwargs.pop("base_url", None)
+            openai_client_kwargs = {}
+            for key in (
+                "organization",
+                "timeout",
+                "max_retries",
+                "default_headers",
+                "http_client",
+                "app_info",
+            ):
+                if key in kwargs:
+                    openai_client_kwargs[key] = kwargs.pop(key)
+
+            # Build client kwargs, including base_url if provided
+            client_kwargs = {"api_key": api_key, **openai_client_kwargs}
+            if base_url is not None:
+                client_kwargs["base_url"] = base_url
+
             client = (
-                openai.AsyncOpenAI(api_key=api_key)
+                openai.AsyncOpenAI(**client_kwargs)
                 if async_client
-                else openai.OpenAI(api_key=api_key)
+                else openai.OpenAI(**client_kwargs)
             )
             result = from_openai(
                 client,
