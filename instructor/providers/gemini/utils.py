@@ -130,22 +130,23 @@ def transform_to_gemini_prompt(
 
 def verify_no_unions(obj: dict[str, Any]) -> bool:  # noqa: ARG001
     """
-    Verify Union type compatibility for Google GenAI.
+    Verify that the object does not contain any Union types (except Optional and Decimal).
+    Optional[T] is allowed as it becomes Union[T, None].
+    Decimal types are allowed as Union[str, float] or Union[float, str].
 
-    As of google-genai 1.5.0+, Union types (anyOf) are now supported.
-    See: https://github.com/googleapis/python-genai/issues/447
-
-    This function now allows all Union types to pass through, as the
-    GenAI SDK handles them correctly.
+    Note: As of December 2024, Google GenAI now supports Union types
+    (see https://github.com/googleapis/python-genai/issues/447).
+    This function is kept for backward compatibility but now returns True
+    for all schemas. The validation is no longer necessary.
 
     Args:
-        obj: The schema object (kept for backwards compatibility)
+        obj: The schema object to verify (kept for backward compatibility).
 
     Returns:
-        True to indicate all schemas are valid.
+        Always returns True since Union types are now supported.
     """
-    # Union types are now supported by Google GenAI SDK
-    # See issue #1964 and https://github.com/googleapis/python-genai/issues/447
+    # Google GenAI now supports Union types, so we no longer need to validate.
+    # See: https://github.com/instructor-ai/instructor/issues/1964
     return True
 
 
@@ -240,6 +241,9 @@ def update_genai_kwargs(
 ) -> dict[str, Any]:
     """
     Update keyword arguments for google.genai package from OpenAI format.
+
+    Handles merging of user-provided config with instructor's base config,
+    including special handling for thinking_config and other config fields.
     """
     from google.genai.types import HarmBlockThreshold, HarmCategory
 
@@ -290,10 +294,33 @@ def update_genai_kwargs(
             }
         )
 
-    # Handle thinking_config parameter - pass through directly since it's already in genai format
+    # Extract thinking_config from user's config object if provided
+    # This ensures thinking_config inside config parameter is not ignored
+    user_config = new_kwargs.get("config")
+    user_thinking_config = None
+    if user_config is not None and hasattr(user_config, "thinking_config"):
+        user_thinking_config = user_config.thinking_config
+
+    # Handle thinking_config parameter - prioritize kwarg over config.thinking_config
     thinking_config = new_kwargs.pop("thinking_config", None)
+    if thinking_config is None:
+        thinking_config = user_thinking_config
+
     if thinking_config is not None:
         base_config["thinking_config"] = thinking_config
+
+    # Extract other relevant fields from user's config object
+    # This ensures fields like automatic_function_calling are not ignored
+    if user_config is not None:
+        config_fields_to_merge = [
+            "automatic_function_calling",
+            "labels",
+        ]
+        for field in config_fields_to_merge:
+            if hasattr(user_config, field):
+                field_value = getattr(user_config, field)
+                if field_value is not None and field not in base_config:
+                    base_config[field] = field_value
 
     return base_config
 
