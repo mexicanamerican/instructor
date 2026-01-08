@@ -6,6 +6,11 @@ All notable changes to this project will be documented in this file. The format 
 
 <!-- Add upcoming changes here -->
 
+## [1.14.1] - 2026-01-08
+
+### Fixed
+- Added support for cached_content in Google Gemini context caching (#1987)
+
 ## [1.14.0] - 2026-01-08
 
 ### Added
