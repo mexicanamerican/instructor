@@ -9,10 +9,13 @@ All notable changes to this project will be documented in this file. The format 
 ## [1.14.2] - 2026-01-13
 
 ### Fixed
-- Prevented infinite recursion when creating Partial models for recursive Pydantic models (#1997)
+- Fixed model validators crashing during partial streaming by skipping them until streaming completes (#1994)
+- Fixed infinite recursion with self-referential models in Partial (e.g., TreeNode with children: List["TreeNode"]) (#1997)
 
 ### Added
-- Added coverage for recursive Partial models (#1997)
+- Added `PartialLiteralMixin` documentation for handling Literal/Enum types during streaming (#1994)
+- Added final validation against original model after streaming completes to enforce required fields (#1994)
+- Added tests for recursive Partial models (#1997)
 
 ## [1.14.1] - 2026-01-08
 
