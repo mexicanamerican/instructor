@@ -6,6 +6,19 @@ All notable changes to this project will be documented in this file. The format 
 
 <!-- Add upcoming changes here -->
 
+## [1.14.3] - 2026-01-13
+
+### Added
+- Completeness-based validation for Partial streaming - only validates JSON structures that are structurally complete (#1999)
+- New `JsonCompleteness` class in `instructor/dsl/json_tracker.py` for tracking JSON completeness during streaming (#1999)
+
+### Fixed
+- Fixed Stream objects crashing reask handlers when using streaming with `max_retries > 1` (#1992)
+- Field constraints (`min_length`, `max_length`, `ge`, `le`, etc.) now work correctly during streaming (#1999)
+
+### Deprecated
+- `PartialLiteralMixin` is now deprecated - completeness-based validation handles Literal/Enum types automatically (#1999)
+
 ## [1.14.2] - 2026-01-13
 
 ### Fixed
