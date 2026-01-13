@@ -16,9 +16,10 @@ import warnings
 from collections.abc import AsyncGenerator, Generator, Iterable
 from copy import deepcopy
 from functools import cache
-from typing import (
+from typing import (  # noqa: UP035
     Any,
     Generic,
+    List,  # needed for runtime check against typing.List annotations from user code
     NoReturn,
     Optional,
     TypeVar,
@@ -200,7 +201,7 @@ def _build_partial_list(
         field_info = original_model.model_fields.get(field_name)
         if field_info:
             field_type = field_info.annotation
-            if get_origin(field_type) in (list, List):
+            if get_origin(field_type) in (list, List):  # noqa: UP006
                 args = get_args(field_type)
                 if args:
                     item_type = args[0]

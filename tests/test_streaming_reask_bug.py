@@ -8,7 +8,6 @@ GitHub Issue: https://github.com/jxnl/instructor/issues/1991
 """
 
 import pytest
-from unittest.mock import MagicMock
 from pydantic import ValidationError, BaseModel, field_validator
 
 from instructor.mode import Mode
