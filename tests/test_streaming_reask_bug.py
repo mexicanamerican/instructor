@@ -143,21 +143,25 @@ class TestStreamingReaskIntegration:
         return instructor.from_openai(OpenAI())
 
     def test_streaming_with_retries_and_failing_validator(self, client):
-        """Test that streaming with retries doesn't crash on validation failure."""
+        """Test that streaming with retries doesn't crash on validation failure.
 
-        class StrictUser(BaseModel):
-            name: str
-            age: int
+        This test verifies that the reask handler doesn't crash with
+        "'Stream' object has no attribute 'choices'" when validation fails
+        during streaming. The actual validation outcome depends on LLM behavior.
+        """
 
-            @field_validator("name")
+        class ImpossibleModel(BaseModel):
+            """Model with a validator that always fails."""
+
+            value: str
+
+            @field_validator("value")
             @classmethod
-            def name_must_have_space(cls, v: str) -> str:
-                if v and " " not in v:
-                    raise ValueError("Name must have first and last name")
-                return v
+            def always_fail(cls, v: str) -> str:  # noqa: ARG003
+                raise ValueError("This validator always fails for testing")
 
-        # This should not crash with AttributeError
-        # It may raise InstructorRetryException after retries exhausted, which is expected
+        # This should not crash with AttributeError about Stream.choices
+        # It should raise InstructorRetryException after retries are exhausted
         from instructor.core.exceptions import InstructorRetryException
 
         with pytest.raises(InstructorRetryException):
@@ -168,9 +172,9 @@ class TestStreamingReaskIntegration:
                     messages=[
                         {
                             "role": "user",
-                            "content": "Extract: John is 25. Return name='John' (no last name).",
+                            "content": "Return value='test'",
                         }
                     ],
-                    response_model=StrictUser,
+                    response_model=ImpossibleModel,
                 )
             )
