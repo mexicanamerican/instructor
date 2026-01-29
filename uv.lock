@@ -1766,7 +1766,7 @@ wheels = [
 
 [[package]]
 name = "instructor"
-version = "1.14.4"
+version = "1.14.5"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -1775,13 +1775,11 @@ dependencies = [
     { name = "jinja2" },
     { name = "jiter" },
     { name = "openai" },
-    { name = "pre-commit" },
     { name = "pydantic" },
     { name = "pydantic-core" },
     { name = "requests" },
     { name = "rich" },
     { name = "tenacity" },
-    { name = "ty" },
     { name = "typer" },
 ]
 
@@ -1812,6 +1810,7 @@ dev = [
     { name = "pytest-examples" },
     { name = "pytest-xdist" },
     { name = "python-dotenv" },
+    { name = "ty" },
     { name = "xmltodict" },
 ]
 docs = [
@@ -1924,7 +1923,6 @@ requires-dist = [
     { name = "openai", marker = "extra == 'perplexity'", specifier = ">=2.0.0,<3.0.0" },
     { name = "pandas", marker = "extra == 'test-docs'", specifier = ">=2.2.0,<3.0.0" },
     { name = "phonenumbers", marker = "extra == 'phonenumbers'", specifier = ">=8.13.33,<10.0.0" },
-    { name = "pre-commit", specifier = ">=4.3.0" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.2.0" },
     { name = "pydantic", specifier = ">=2.8.0,<3.0.0" },
     { name = "pydantic-core", specifier = ">=2.18.0,<3.0.0" },
@@ -1944,7 +1942,7 @@ requires-dist = [
     { name = "tabulate", marker = "extra == 'test-docs'", specifier = ">=0.9.0,<1.0.0" },
     { name = "tenacity", specifier = ">=8.2.3,<10.0.0" },
     { name = "trafilatura", marker = "extra == 'trafilatura'", specifier = ">=1.12.2,<3.0.0" },
-    { name = "ty", specifier = ">=0.0.1a23" },
+    { name = "ty", marker = "extra == 'dev'", specifier = ">=0.0.1a23" },
     { name = "typer", specifier = ">=0.9.0,<1.0.0" },
     { name = "writer-sdk", marker = "extra == 'writer'", specifier = ">=2.2.0,<3.0.0" },
     { name = "xai-sdk", marker = "python_full_version >= '3.10' and extra == 'xai'", specifier = ">=0.2.0" },
